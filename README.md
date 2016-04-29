@@ -1,0 +1,2 @@
+# penny
+pythonic finance sandbox
