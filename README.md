@@ -1,2 +1,2 @@
-# penny
+# Pennies
 pythonic finance sandbox

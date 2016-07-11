@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# OS local files (Finder, Vim)
+.DS_Store
+*.swp
+
 # C extensions
 *.so
 
@@ -48,6 +52,9 @@ coverage.xml
 # Translations
 *.mo
 *.pot
+
+# PyCharm
+.idea
 
 # Django stuff:
 *.log
