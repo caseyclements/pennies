@@ -21,7 +21,7 @@ install:
   # Install dependencies
   - conda create -n test-environment python=$PYTHON
   - source activate test-environment
-  - conda install numpy=$NUMPY scipy pytest coverage
+  - conda install numpy=$NUMPY scipy pytest pytest-cov
 
   # Install package
   # (from dask) - pip install --no-deps -e .[complete]
