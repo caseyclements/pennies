@@ -5,7 +5,6 @@ env:
   matrix:
     - PYTHON=2.7 NUMPY=1.10.4 COVERAGE='false'
     - PYTHON=2.7 NUMPY=1.11.0 COVERAGE='false'
-    #- PYTHON=3.3 NUMPY=1.9.2 COVERAGE='false'
     - PYTHON=3.4 NUMPY=1.10.4 COVERAGE='false'
     - PYTHON=3.5 NUMPY=1.11.0 COVERAGE='true'
 
