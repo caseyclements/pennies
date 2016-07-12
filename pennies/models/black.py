@@ -28,7 +28,7 @@ def price(forward, strike, maturity, vol, isCall=True):
         Time to maturity of the option, expressed in years
     vol : numeric ndarray
         Lognormal (Black) volatility
-    isCall : bool
+    isCall : bool, optional
         True if option is a Call, False if a Put.
 
     Returns
@@ -42,8 +42,9 @@ def price(forward, strike, maturity, vol, isCall=True):
     >>> f = np.array([100.0, 125.0, 150.0])
     >>> print(black.price(forward=f, strike=100, maturity=2.0, vol=0.2, isCall=False))
     [ 11.2462916    3.85331538   1.17090066]
-    >>> vol = nd.array([0.2, 0.5])
-    >>> print(black.price(forward=f[None,:], strike=100, maturity=2.0, vol=vol[:,None], isCall=False))
+    >>> vol = np.array([0.2, 0.5])
+    >>> print(black.price(forward=f[None,:], strike=100, maturity=2.0, \
+                vol=vol[:,None], isCall=False))
     [[ 11.2462916    3.85331538   1.17090066]
      [ 27.63263902  20.05140562  14.75322583]]
     """
@@ -56,9 +57,9 @@ def price(forward, strike, maturity, vol, isCall=True):
                                  np.inf, d1)
     d2 = d1 - stddev
     sign = np.where(isCall, 1, -1)
-    
-    return np.maximum(0.0, sign * (forward * norm.cdf(sign * d1) 
-                            - strike * norm.cdf(sign * d2)))
+
+    return np.maximum(0.0, sign * (forward * norm.cdf(sign * d1)
+                                   - strike * norm.cdf(sign * d2)))
 
 
 def delta(forward, strike, maturity, vol, isCall=True):
@@ -74,7 +75,7 @@ def delta(forward, strike, maturity, vol, isCall=True):
         Time to maturity of the option, expressed in years
     vol : numeric ndarray
         Lognormal (Black) volatility
-    isCall : bool
+    isCall : bool, optional
         True if option is a Call, False if a Put.
 
     Returns
@@ -88,8 +89,9 @@ def delta(forward, strike, maturity, vol, isCall=True):
     >>> f = np.array([100.0, 125.0, 150.0])
     >>> print(black.delta(forward=f, strike=100, maturity=2.0, vol=0.2, isCall=False))
     [-0.         -0.17609419 -0.05763319]
-    >>> vol = nd.array([0.2, 0.5])
-    >>> print(black.delta(forward=f[None,:], strike=100, maturity=2.0, vol=vol[:,None], isCall=False))
+    >>> vol = np.array([0.2, 0.5])
+    >>> print(black.delta(forward=f[None,:], strike=100, maturity=2.0, \
+                vol=vol[:,None], isCall=False))
     [[-0.         -0.17609419 -0.05763319]
      [-0.         -0.25170754 -0.17697167]]
     """
@@ -100,4 +102,17 @@ def delta(forward, strike, maturity, vol, isCall=True):
                     np.inf, d1) # handle common special case
     sign = np.where(isCall, 1, -1)
     
-    return sign * norm.cdf(sign * d1) 
+    return sign * norm.cdf(sign * d1)
+
+
+def strike_from_delta(forward, fwd_delta, maturity, vol, isCall=True):
+    """Return absolute value of strike price, given delta
+
+    In many lines of business, the strike price is specified as the Option's Delta.
+    This function converts that back to a strike in price-space for use in models.
+    """
+
+    variance = vol ** 2 * maturity
+    sign = np.where(isCall, 1, -1)
+    d1 = sign * norm.ppf(sign * fwd_delta)
+    return forward * np.exp(-d1 * np.sqrt(variance) + 0.5 * variance)

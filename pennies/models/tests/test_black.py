@@ -1,6 +1,6 @@
 from __future__ import division, print_function
 
-from ..black import price, delta 
+from ..black import price, delta, strike_from_delta
 import numpy as np
 
 def test_price():
@@ -106,5 +106,12 @@ def test_delta_large_vol_put_zero():
     
     forward, strike, expiry, vol = (100, 105, 0.5, np.inf)
     assert np.isclose(delta(forward, strike, expiry, vol, False), 0.0), (
-        'Delta of a Put with infinite vol should be 0.0')    
+        'Delta of a Put with infinite vol should be 0.0')
+
+
+def test_strike_from_delta():
+    """Test that strike of 0.5 delta is the at-the-money forward"""
+    forward, delta, expiry, vol = (100, 0.5, 1.0, 0.25)
+    atm_forward = forward * np.exp(0.5 * vol ** 2 * expiry)
+    assert np.isclose(strike_from_delta(forward, delta, expiry, vol), atm_forward)
 
