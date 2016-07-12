@@ -31,7 +31,10 @@ install:
   - pip install --pre --no-index --find-links dist/ pennies
 
 script:
-    - if [[ $COVERAGE == 'true' ]]; then py.test --cov --cov-report=html -vv -s --pyarg --doctest-modules pennies; fi
+  - if [[ $COVERAGE == 'true' ]]; then py.test --cov --cov-report=html -vv -s --pyarg --doctest-modules pennies; fi
+
+after_success:
+  - if [[ COVERAGE == 'true' ]]; then coverage report --show-missing; pip install coveralls ; coveralls ; fi
 
 #notifications:
 #  email: false

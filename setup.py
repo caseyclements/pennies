@@ -38,7 +38,7 @@ setup(
     maintainer = 'Casey Clements',
     maintainer_email = 'casey.clements@gmail.com',
     description = 'pennies: pythonic quantitative finance library',
-    long_description = open('README.md').read(), 
+    long_description = open('README.rst').read(),
     url = 'https://github.com/caseyclements/pennies',
     packages = find_packages(where='.', exclude=('pennies')),
     license = 'BSD',
