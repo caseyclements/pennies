@@ -1,20 +1,19 @@
 #!/usr/bin/env python
 
-'''pennies: a pythonic quantitative finance library for pricing and risk'''
+"""pennies: a pythonic quantitative finance library for pricing and risk"""
 
 from setuptools import setup, find_packages
-from os.path import exists
 import sys
 
 if sys.version_info[:2] < (2,7):
     raise RuntimeError("Currently requires Python version >= 2.7.")
 
-MAJOR               = 0
-MINOR               = 1
-MICRO               = 0
-ISRELEASED          = False
-VERSION             = '%d.%d.%d' % (MAJOR, MINOR, MICRO)
-FULLVERSION	        = VERSION + '.dev1'
+MAJOR = 0
+MINOR = 1
+MICRO = 0
+ISRELEASED = False
+VERSION = '%d.%d.%d' % (MAJOR, MINOR, MICRO)
+FULLVERSION = VERSION + '.dev1'
 
 CLASSIFIERS = """\
 Development Status :: 1 - Planning
@@ -32,18 +31,18 @@ Operating System :: MacOS
 """
 
 
-setup(    
-    name = 'pennies',
-    version = VERSION,
-    maintainer = 'Casey Clements',
-    maintainer_email = 'casey.clements@gmail.com',
-    description = 'pennies: pythonic quantitative finance library',
-    long_description = open('README.rst').read(),
-    url = 'https://github.com/caseyclements/pennies',
-    packages = find_packages(where='.', exclude=('pennies')),
-    license = 'BSD',
+setup(
+    name='pennies',
+    version=VERSION,
+    maintainer='Casey Clements',
+    maintainer_email='casey.clements@gmail.com',
+    description='pennies: pythonic quantitative finance library',
+    long_description=open('README.md').read(),
+    url='https://github.com/caseyclements/pennies',
+    packages=find_packages(where='.', exclude='pennies'),
+    license='BSD',
     classifiers=[_f for _f in CLASSIFIERS.split('\n') if _f],
-    platforms = ['Mac OS-X'],  # "Windows", "Linux", "Solaris", "Unix"
-    install_requires=['numpy']
+    platforms=['Mac OS-X'],  # "Windows", "Linux", "Solaris", "Unix"
+    install_requires=['numpy', 'scipy', ]
 )
 
