@@ -41,8 +41,8 @@ def price(forward, strike, maturity, vol, is_call=True):
     --------
     >>> from pennies.models import black
     >>> f = np.array([100.0, 125.0, 150.0])
-    >>> print(black.price(forward=f, strike=100, maturity=2.0, vol=0.2)
-    [ 11.2462916    3.85331538   1.17090066]
+    >>> print(black.price(forward=f, strike=100, maturity=2.0, vol=0.2))
+    [ 11.2462916   28.85331538  51.17090066]
     >>> vol = np.array([0.2, 0.5])
     >>> print(black.price(forward=f[None,:], strike=100, maturity=2.0, \
                 vol=vol[:,None], is_call=False))
@@ -104,13 +104,13 @@ def delta(forward, strike, maturity, vol, is_call=True):
     --------
     >>> from pennies.models import black
     >>> f = np.array([100.0, 125.0, 150.0])
-    >>> print(black.delta(forward=f, strike=100, maturity=2.0, vol=0.2, is_call=False))
-    [-0.         -0.17609419 -0.05763319]
+    >>> print(black.delta(forward=f, strike=100, maturity=2.0, vol=0.2))
+    [ 0.55623146  0.82390581  0.94236681]
     >>> vol = np.array([0.2, 0.5])
     >>> print(black.delta(forward=f[None,:], strike=100, maturity=2.0, \
                 vol=vol[:,None], is_call=False))
-    [[-0.         -0.17609419 -0.05763319]
-     [-0.         -0.25170754 -0.17697167]]
+    [[-0.44376854 -0.17609419 -0.05763319]
+     [-0.3618368  -0.25170754 -0.17697167]]
     """
 
     sign = np.where(is_call, 1, -1)
