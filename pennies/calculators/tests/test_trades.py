@@ -1,7 +1,7 @@
 from __future__ import division, print_function
 
 from pennies.trading import assets
-from pennies.calculators.assets import default_calculators
+from pennies.calculators.trades import default_calculators
 
 # TODO Use this to compare constructors
 

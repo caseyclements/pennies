@@ -1,7 +1,20 @@
 from __future__ import absolute_import, division, print_function
 
 from pennies.calculators.payments import BulletPaymentCalculator
-from pennies.calculators.assets import default_calculators
+import pennies.calculators.payments as payments
+from pennies.trading import assets
+
+
+# TODO: Rethink default_calculators as we examine dispatch
+def default_calculators():
+    return {
+        str(assets.BulletPayment): payments.BulletPaymentCalculator,
+        str(assets.DiscountBond): payments.BulletPaymentCalculator,
+        str(assets.SettlementPayment): payments.BulletPaymentCalculator,
+        str(assets.Zero): payments.BulletPaymentCalculator,
+        str(assets.ZeroCouponBond): payments.BulletPaymentCalculator,
+        str(assets.CompoundAsset): None
+    }
 
 
 class TradeCalculator(object):
