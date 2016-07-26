@@ -2,3 +2,4 @@ name: pennies
 
 dependencies:
   - python =3.5
+  - multipledispatch =4.8
