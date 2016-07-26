@@ -1,0 +1,4 @@
+name: pennies
+
+dependencies:
+  - python =3.5
