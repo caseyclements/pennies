@@ -13,7 +13,7 @@ def present_value(asset, discount_factor):
 
 @dispatch(DataFrame, object)
 def present_value(asset_list, discount_factor):
-    return x.applymap(present_value)
+    return asset_list.applymap(lambda x: present_value(x, discount_factor))
 
 
 @dispatch(BASE_TYPES)
