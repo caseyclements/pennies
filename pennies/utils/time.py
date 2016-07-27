@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 import datetime as dt
+import pandas as pd
 
 
 def calendar_date(date_time):
@@ -32,3 +33,48 @@ _map_daycounts = {'Act/365 Fixed': act365_fixed}
 
 def daycount(name):  # TODO This is horrible. Change after daycounts added
     return _map_daycounts.get(name, act365_fixed)
+
+
+FREQ_TO_FRAC = {
+    'D': 1/365,
+    'W': 1/52,
+    'WS': 1/52,
+    'M': 1/12,
+    'MS': 1/12,
+    'Q': 1/4,
+    'QS': 1/4,
+    'A': 1,
+    'AS': 1
+}
+
+def freq_to_frac(freq):
+    return FREQ_TO_FRAC[freq]
+
+
+def date_range(start, end, freq):
+    """
+    Generate range of dates.
+
+    Parameters
+    ----------
+
+    start: str, date, datetime
+        start date of range (exclusive)
+    end: str, date, datetime
+        end date of range(inclusive)
+    freq: str
+        D, W, M, Q, A for end (WS, MS, QS, AS for start)
+        If None, return DatetimeIndex with end.
+
+    Returns
+    -------
+
+    `DatetimeIndex`
+    """
+    if freq is None:
+        return pd.DatetimeIndex([end])
+
+    if isinstance(end, str):
+        end = dt.datetime.strptime(end, '%Y-%m-%d')
+
+    return pd.date_range(start, end, freq=freq)

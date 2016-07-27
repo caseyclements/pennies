@@ -1,5 +1,6 @@
 name: pennies
 
 dependencies:
-  - python =3.5
+  - python =3.4
   - multipledispatch =4.8
+  - pandas =0.18.1

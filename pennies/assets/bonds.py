@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 from pennies.assets.core import Asset
 
+
 class Bond(Asset):
 
     def __init__(self, principal, start_date, end_date, frequency, coupon, currency='USD'):
@@ -30,4 +31,4 @@ class ZeroCouponBond(Bond):
     """
 
     def __init__(self, principal, start_date, end_date, coupon, currency='USD'):
-        super(ZeroCouponBond, self).__init__(principal, start_date, end_date, 0, coupon, currency)
+        super(ZeroCouponBond, self).__init__(principal, start_date, end_date, None, coupon, currency)
