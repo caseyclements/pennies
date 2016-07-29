@@ -32,4 +32,4 @@ class BulletPaymentCalculator(AssetCalculator):
         """Present, or Fair, Value of a known BulletPayment."""
         df = self.market.discount_factor(self.contract.dt_payment,
                                          self.contract.currency)
-        return CurrencyAmount(self.contract.amount * df, self.contract.currency)
+        return CurrencyAmount(self.contract.notional * df, self.contract.currency)

@@ -5,6 +5,10 @@ These are often referred to as Securities or Products in other libraries.
 
 from __future__ import absolute_import, division, print_function
 
+import pandas as pd
+from pandas.tseries.offsets import DateOffset, CustomBusinessDay
+from pennies.time import daycount
+
 
 class Asset(object):
     """Base class of all Financial Assets"""
@@ -35,23 +39,35 @@ class ZeroCouponBond(Asset):
         Date (and time) on which amount is received
     currency : str
         Currency code of amount received
-    amount: float
-        Currency Amount. Received if positive, else paid.
+    notional: float
+        Notional in given currency. Received if positive, else paid.
+        notional: float
+        Notional in given currency. Received if positive, else paid.
     """
 
-    def __init__(self, dt_payment, currency='USD', amount=1.0):
+    def __init__(self, dt_payment, currency='USD', notional=1.0, bday=None):
         """
+        Parameters
+        ----------
         dt_payment: datetime
-            Date (and time) on which amount is received
+            Date (and time) on which notional is received
         currency : str, optional
-            Currency code of amount received
-        amount: float, optional
+            Currency code of notional received
+        notional: float, optional
             Currency Amount. Received if positive, else paid.
+        bday: str, optional
+            Rule to adjust dates that fall on weekends and holidays.
         """
+        super(ZeroCouponBond, self).__init__()
         self.dt_payment = dt_payment
         self.currency = currency
-        self.amount = amount
+        self.notional = notional
 
+        self.frame = pd.DataFrame({
+            'pay': dt_payment,
+            'notional': notional,
+            'currency': currency},
+            index=[0])
 
 # TODO: Check whether this sort of aliasing is a good idea
 Zero = ZeroCouponBond
@@ -74,7 +90,6 @@ class CompoundAsset(Asset):
 
     Attributes
     ----------
-
     underlying_contracts: list
         List of instances of Assets
     """
@@ -83,8 +98,9 @@ class CompoundAsset(Asset):
         """
         Parameters
         ----------
-        underlying_contracts: list of Asset
+        underlying_contracts: list of Asset's
         """
+        super(CompoundAsset, self).__init__()
         self.underlying_contracts = underlying_contracts
 
 
@@ -92,41 +108,87 @@ class Annuity(object):
     """Fixed Rate Annuity.
 
     This is used as the fixed leg of a Swap, as the core of fixed rate Bonds,
-    and the natural numeraire when pricing swaptions
+    and the natural Numeraire when pricing Swaptions.
 
+    The primary representation of the asset is a dataframe where each
+    row is a single cashflow.
     """
 
     # TODO This will remain incomplete, in the sense that it only captures
     # TODO the Vanilla case. For example, it does not handle stubs.
 
     # TODO Need to define set of conventions for daycount calculations
-    # Todo Need to define set of conventions business day adjustments
+    # TODO Need to define set of conventions business day adjustments
+    # TODO Need to add holiday calendars
 
-    def __init__(self, dt_settlement, duration, frequency, receive=True,
-                 daycount=None, payment_lag=0, busday='Following', stub='Front',
-                 currency='USD', fixed_rate=1.0, notional=1.0,):
-        """
-        dt_payment: datetime
-            Date (and time) on which amount is received
+    def __init__(self, dt_settlement, duration, frequency, dcc=None,
+                 fixed_rate=1.0, notional=1.0, currency='USD', receive=True,
+                 payment_lag=0, bday=None, stub='front'):
+        """Construct a fixed rate Annuity from dates and frequency.
+
+        Parameters
+        ----------
+        dt_settlement: datetime
+            Date (and time) on which leg begins to accrue interest
+        duration: int
+            Length of the entire leg, (currently) as number of months
+        frequency: int
+            Number of months between cash flows
+        dcc: str, optional
+            Daycount Convention for computing accrual of interest
+        fixed_rate: float, optional
+            Rate of interest accrual. Simple accrual, no compounding in period.
+        notional: float, optional
+            Notional amount. Received if positive, else paid.
         currency : str, optional
             Currency code of amount received
-        notional: float, optional
-            Notional, provides a scaling factor on prices. Received if positive, else paid.
+        receive: bool, optional
+            Alternative method of specifying sign of notional.
+            Multiplies given notional by -1 if False
+        payment_lag: int, optional
+            Number of days after accrual end dates that payments are made.
+        bday: str, optional
+            Rule to adjust dates that fall on weekends and holidays.
+        stub: str, optional
+            If schedule building leads to one period of different length,
+            this decides if it is the first ('front') or last period ('back').
         """
+        # TODO: Check behavior when stubs implied
+        super(Annuity, self).__init__()
+        dt_maturity = dt_settlement + DateOffset(months=duration)
+        period = DateOffset(months=frequency)
+        sched_end = pd.date_range(dt_settlement, dt_maturity,
+                                  freq=period, closed='right')
+        sched_start = sched_end - period  # starts of accrual periods
+        sched_pay = sched_end + CustomBusinessDay(payment_lag, holidays=None)
+        fn_accrue = daycount(dcc)
+        year_frac = fn_accrue(sched_start, sched_pay)
 
-        # Use inputs to create the required vectors
-        self.payment_dts = None
-        self.year_fractions
-        self.currency = currency
-        self.notional = notional
+        # primary representation of leg as pandas dataframe
+        self.frame = pd.DataFrame({
+            'start': sched_start,
+            'end': sched_end,
+            'pay': sched_pay,
+            'period': year_frac,
+            'rate': fixed_rate,
+            'notional': notional,
+            'currency': currency,
+            'dcc': dcc,
+            'pay_lag': payment_lag,
+            'bday_adj': bday,
+            'stub': stub})
+        # TODO - Finish this and add tests
 
         @classmethod
-        def from_schedules():
-            """Compute from formed, or bespoke payment date schedule
+        def from_frame(dataframe):
+            """Compute from dataframe
 
-            Probably also require year_fractions
+            Parameters
+            ----------
+            Required columns =  ['start','end', 'pay', 'period',
+            'rate', 'notional', 'dcc','lag_pay', 'bday_adj']
             """
-            pass
+            self.frame = dataframe
 
 
 class IborLeg(object):
@@ -194,11 +256,13 @@ class IborFixing(object):
     def __init__(self):
         raise NotImplementedError
 
+
 class TenorSwap(object):
     """Swap with two floating legs, each of different rate tenors"""
 
     def __init__(self):
         raise NotImplementedError
+
 
 class CurrencySwap(object):
     """Swap with two floating legs, each of different currencies
@@ -207,21 +271,3 @@ class CurrencySwap(object):
 
     def __init__(self):
         raise NotImplementedError
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
