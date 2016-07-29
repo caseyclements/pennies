@@ -1,14 +1,16 @@
 from __future__ import absolute_import, division, print_function
+
+import pandas as pd
 from pennies.assets.core import Asset
 
 
 class Bond(Asset):
 
-    def __init__(self, principal, start_date, end_date, frequency, coupon, currency='USD'):
+    def __init__(self, principal, start_date, maturity, frequency, coupon, currency='USD'):
 
         self.principal = principal
-        self.start_date = start_date
-        self.end_date = end_date
+        self.start_date = pd.to_datetime(start_date)
+        self.maturity = maturity
         self.frequency = frequency
         self.coupon = coupon
         self.currency = currency
@@ -30,5 +32,5 @@ class ZeroCouponBond(Bond):
         Currency Amount. Received if positive, else paid.
     """
 
-    def __init__(self, principal, start_date, end_date, coupon, currency='USD'):
-        super(ZeroCouponBond, self).__init__(principal, start_date, end_date, None, coupon, currency)
+    def __init__(self, principal, start_date, maturity, coupon, currency='USD'):
+        super(ZeroCouponBond, self).__init__(principal, start_date, maturity, None, coupon, currency)

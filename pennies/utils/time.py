@@ -35,7 +35,7 @@ def daycount(name):  # TODO This is horrible. Change after daycounts added
     return _map_daycounts.get(name, act365_fixed)
 
 
-FREQ_TO_FRAC = {
+FREQ_TO_YEAR_FRAC = {
     'D': 1/365,
     'W': 1/52,
     'WS': 1/52,
@@ -48,7 +48,7 @@ FREQ_TO_FRAC = {
 }
 
 def freq_to_frac(freq):
-    return FREQ_TO_FRAC[freq]
+    return FREQ_TO_YEAR_FRAC[freq]
 
 
 def date_range(start, end, freq):
@@ -78,3 +78,23 @@ def date_range(start, end, freq):
         end = dt.datetime.strptime(end, '%Y-%m-%d')
 
     return pd.date_range(start, end, freq=freq)
+
+
+def to_offset(s):
+    """Pass in a string to get a date offset.
+
+    Arguments
+    ---------
+
+    s: str
+        offset string which has format "<int> <freq>" where
+        frequency can be one of "days", "months", or "years".
+    """
+    amount, freq = s.split(' ')
+    kwargs = {freq: int(amount)}
+    return pd.tseries.offsets.DateOffset(**kwargs)
+
+
+def years_difference(start, end):
+    print(start, end)
+    return (end - start).total_seconds() / 31536000
