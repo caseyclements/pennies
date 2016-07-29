@@ -57,7 +57,7 @@ class ConstantDiscountRateCurve(Curve):
     """
     def __init__(self, dt_valuation,
                  zero_rate=0.0,
-                 daycount_function=time.daycount('Act/365 Fixed'),
+                 daycount_function=time.daycount('ACT365FIXED'),
                  currency="USD"):
         super(ConstantDiscountRateCurve, self).__init__(dt_valuation)
         self.zero_rate = zero_rate

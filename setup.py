@@ -43,6 +43,6 @@ setup(
     license='BSD',
     classifiers=[_f for _f in CLASSIFIERS.split('\n') if _f],
     platforms=['Mac OS-X'],  # "Windows", "Linux", "Solaris", "Unix"
-    install_requires=['numpy', 'scipy', ]
+    install_requires=['numpy', 'pandas', 'scipy']
 )
 

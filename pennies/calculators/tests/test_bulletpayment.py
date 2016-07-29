@@ -18,13 +18,13 @@ dt_val = dt.datetime.now()  # note: both date and time
 dt_pay = dt_val + dt.timedelta(days=730)
 notional = 5.5e6
 ccy = "USD"
-bullet = assets.BulletPayment(dt_payment=dt_pay, currency=ccy, amount=notional)
+bullet = assets.BulletPayment(dt_payment=dt_pay, currency=ccy, notional=notional)
 trade = trades.Trade(contract=bullet)
 
 rate_discount = 0.05
 crv_discount = ConstantDiscountRateCurve(
     dt_valuation=dt_val, zero_rate=rate_discount,
-    daycount_function=daycount('Act/365 Fixed'), currency=ccy)
+    daycount_function=daycount('ACT365FIXED'), currency=ccy)
 market = RatesTermStructure.of_single_curve(dt_val, crv_discount)
 expected_contract_pv = 4976605.8
 

@@ -64,7 +64,7 @@ class Trade(object):
 
             self.settlement = BulletPayment(dt_payment=settlement_dt,
                                             currency=settlement_ccy,
-                                            amount=settlement_amt)
+                                            notional=settlement_amt)
 
     @property
     def contract_type(self):
@@ -84,11 +84,11 @@ class Trade(object):
     # TODO Check naming convention of classmethods
     # TODO Design question - Should I include asset-specific constructors?
     @classmethod
-    def bullet_payment(cls, dt_payment, currency="USD", amount=1.0,
-            dt_trade=None, counterparty=None, settlement_dt=None,
-                           settlement_amt=None, settlement_ccy="USD"):
+    def bullet_payment(cls, dt_payment, currency="USD", notional=1.0,
+                       dt_trade=None, counterparty=None, settlement_dt=None,
+                       settlement_amt=None, settlement_ccy="USD"):
         """Create Trade of a BulletPayment"""
-        payment_contract = BulletPayment(dt_payment, currency, amount)
+        payment_contract = BulletPayment(dt_payment, currency, notional)
         return cls(payment_contract, dt_trade, counterparty,
                    settlement_dt, settlement_amt, settlement_ccy)
 

@@ -4,11 +4,15 @@ import datetime as dt
 
 
 def calendar_date(date_time):
+    """
     if isinstance(date_time, dt.datetime):
         return date_time.date()
     elif not isinstance(date_time, dt.date):
         raise ValueError('Expecting date or datetime. Found {} of type {}'
                          .format(date_time, type(date_time)))
+    return date_time
+    """
+    # TODO Need vectorized versions.
     return date_time
 
 
@@ -25,7 +29,7 @@ def to_datetime(date):
 def act365_fixed(dt_start, dt_end):
     return (calendar_date(dt_end) - calendar_date(dt_start)).days / 365.0
 
-_map_daycounts = {'Act/365 Fixed': act365_fixed}
+_map_daycounts = {'ACT365FIXED': act365_fixed}
 """Standard day count conventions for computing year fractions."""
 # TODO - Is this to remain? should it be a dictionary to functions?
 
