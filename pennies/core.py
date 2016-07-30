@@ -73,3 +73,7 @@ class CurrencyAmount(object):
         self.amount /= other
         return self
 
+    def __str__(self):
+        return '[amount={}, currency={}]'.format(self.amount, self.currency)
+
+    __repr__ = __str__
