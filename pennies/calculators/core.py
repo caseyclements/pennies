@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import date, datetime
 from pennies.assets.core import Asset, CashFlow
 from pennies.dispatch import dispatch
-from pennies.utils.time import years_difference
+from pennies.time import years_difference
 
 BASE_TYPES = (object, Asset)
 

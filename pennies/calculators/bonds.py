@@ -7,7 +7,7 @@ from datetime import date
 from pennies.assets.core import CashFlow
 from pennies.assets.bonds import Bond
 from pennies.dispatch import dispatch
-from pennies.utils.time import date_range, freq_to_frac, to_offset
+from pennies.time import date_range, freq_to_frac, to_offset
 
 
 def _bond_cash_flows(b):
