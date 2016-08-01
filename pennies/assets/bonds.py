@@ -5,6 +5,10 @@ from pennies.assets.core import Asset
 
 
 class Bond(Asset):
+    """Base bond class.
+
+    Base class for bonds to store attributes relevant to most bonds.
+    """
 
     def __init__(self, principal, start_date, maturity, frequency, coupon, currency='USD'):
 

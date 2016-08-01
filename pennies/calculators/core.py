@@ -11,22 +11,42 @@ BASE_TYPES = (object, Asset)
 
 
 @dispatch(BASE_TYPES, object)
-def present_value(asset, discount_factor):
+def present_value(asset, market):
+    """Base present value calculation.
+
+    Given an asset (or sequence of assets), calculate it's present
+    value as of today.  Use the supplied market to identify the
+    relevant curve and discount factor.
+
+    Parameters
+    ----------
+
+    asset: Asset
+        Asset to calculate present value
+    market: Market
+        Market to retrieve discount factor
+    """
     raise NotImplementedError("Not available for base types")
 
 
 @dispatch(pd.DataFrame, object)
-def present_value(asset_list, discount_factor):
-    return asset_list.applymap(lambda x: present_value(x, discount_factor))
+def present_value(asset_list, market):
+    """Wrapper to apply present value to a pandas DataFrame of Assets."""
+    return asset_list.applymap(lambda x: present_value(x, market))
 
 
 @dispatch(pd.Series, object)
-def present_value(asset_list, discount_factor):
-    return asset_list.apply(lambda x: present_value(x, discount_factor))
+def present_value(asset_list, market):
+    """Wrapper to apply present value to a pandas Series of Assets."""
+    return asset_list.apply(lambda x: present_value(x, market))
 
 
 @dispatch(CashFlow, object)
-def present_value(cf, discount_factor):
+def present_value(cf, market):
+    """Calculate present value of a single cash flow.
+
+    Calculates the present value of a cash flow as of today.
+    """
     today = datetime.combine(date.today(), datetime.min.time())
 
     # if payment was in the past, ignore cash flow
@@ -34,7 +54,7 @@ def present_value(cf, discount_factor):
         return 0
 
     years = years_difference(today, cf.payment_date)
-    return cf.amount * math.exp(-1.0 * discount_factor * years)
+    return cf.amount * math.exp(-1.0 * market[cf.currency][cf.payment_date] * years)
 
 
 @dispatch(BASE_TYPES)
