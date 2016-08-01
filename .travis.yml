@@ -3,10 +3,14 @@ sudo: false
 
 env:
   matrix:
-    - PYTHON=2.7 NUMPY=1.10.4 COVERAGE='false'
-    - PYTHON=2.7 NUMPY=1.11.0 COVERAGE='false'
-    - PYTHON=3.4 NUMPY=1.10.4 COVERAGE='false'
-    - PYTHON=3.5 NUMPY=1.11.0 COVERAGE='true'
+    - python: "2.7" 
+      env: NUMPY=1.10.4 COVERAGE='false'
+    - python: "2.7"
+      env: NUMPY=1.11.0 COVERAGE='false'
+    - python: "3.4" 
+      env: NUMPY=1.10.4 COVERAGE='false'
+    - python: "3.5" 
+      env: NUMPY=1.11.0 COVERAGE='true'
 
 install:
   # Install conda
@@ -20,7 +24,7 @@ install:
   # Install dependencies
   - conda create -n test-environment python=$PYTHON
   - source activate test-environment
-  - conda install numpy=$NUMPY scipy pytest pytest-cov
+  - conda install --file requirements.txt
 
   # Install package
   # (from dask) - pip install --no-deps -e .[complete]
@@ -30,10 +34,12 @@ install:
   - pip install --pre --no-index --find-links dist/ pennies
 
 script:
-  - if [[ $COVERAGE == 'true' ]]; then py.test --cov --cov-report=html -vv -s --pyarg --doctest-modules pennies; fi
+  - py.test --cov --cov-report=html -vv -s --pyarg --doctest-modules pennies
 
 after_success:
-  - if [[ COVERAGE == 'true' ]]; then coverage report --show-missing; pip install coveralls ; coveralls ; fi
+  - coverage report --show-missing
+  - pip install coveralls
+  - coveralls
 
 #notifications:
 #  email: false
