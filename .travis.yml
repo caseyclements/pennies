@@ -1,15 +1,9 @@
 language: python
 
-env:
-  matrix:
-    - python: "2.7" 
-      env: NUMPY=1.10.4 COVERAGE='false'
-    - python: "2.7"
-      env: NUMPY=1.11.0 COVERAGE='false'
-    - python: "3.4" 
-      env: NUMPY=1.10.4 COVERAGE='false'
-    - python: "3.5" 
-      env: NUMPY=1.11.0 COVERAGE='true'
+python:
+  - "2.7"
+  - "3.4"
+  - "3.5"
 
 install:
   # Install conda
