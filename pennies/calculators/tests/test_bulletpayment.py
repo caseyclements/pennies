@@ -10,7 +10,7 @@ from pennies.market.market import RatesTermStructure
 from pennies.calculators.payments import BulletPaymentCalculator
 from pennies.calculators.trades import TradeCalculator
 from pennies.core import CurrencyAmount
-from pennies.time import daycount
+from pennies.utils.time import daycount
 
 # TODO - Should this be a class of, or a number of individual, tests?
 

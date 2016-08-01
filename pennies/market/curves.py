@@ -28,7 +28,7 @@
 """
 from __future__ import division, print_function
 
-from pennies import time
+from pennies.utils import time
 import numpy as np
 
 

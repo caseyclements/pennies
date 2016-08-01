@@ -54,7 +54,7 @@ def present_value(cf, market):
         return 0
 
     years = years_difference(today, cf.payment_date)
-    return cf.amount * math.exp(-1.0 * market[cf.currency][cf.payment_date] * years)
+    return cf.amount * math.exp(-1.0 * market.discount_factor(cf.payment_date, cf.currency) * years)
 
 
 @dispatch(BASE_TYPES)
