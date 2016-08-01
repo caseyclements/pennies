@@ -28,6 +28,11 @@ def present_value(asset_list, discount_factor):
 @dispatch(CashFlow, object)
 def present_value(cf, discount_factor):
     today = datetime.combine(date.today(), datetime.min.time())
+
+    # if payment was in the past, ignore cash flow
+    if today > cf.payment_date:
+        return 0
+
     years = years_difference(today, cf.payment_date)
     return cf.amount * math.exp(-1.0 * discount_factor * years)
 

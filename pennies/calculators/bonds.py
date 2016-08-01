@@ -34,7 +34,5 @@ def _bond_cash_flows(principal, start_date, maturity, frequency, coupon, currenc
 @dispatch(Bond, numbers.Number)
 def present_value(b, discount_factor):
     cash_flows = _bond_cash_flows(b.principal, b.start_date, b.maturity, b.frequency, b.coupon, b.currency)
-    print(cash_flows, cash_flows[0].__dict__)
     pv_cash_flows = present_value(cash_flows, discount_factor)
-    print(pv_cash_flows)
     return pv_cash_flows.sum()
