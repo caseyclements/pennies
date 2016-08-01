@@ -96,5 +96,4 @@ def to_offset(s):
 
 
 def years_difference(start, end):
-    print(start, end)
     return (end - start).total_seconds() / 31536000

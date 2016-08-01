@@ -42,19 +42,23 @@ def present_value(asset_list, market):
 
 
 @dispatch(CashFlow, object)
-def present_value(cf, market):
+def present_value(cf, market, as_of_date=None):
     """Calculate present value of a single cash flow.
 
     Calculates the present value of a cash flow as of today.
     """
-    today = datetime.combine(date.today(), datetime.min.time())
+    if as_of_date is not None:
+        today = as_of_date
+    else:
+        today = datetime.combine(date.today(), datetime.min.time())
 
     # if payment was in the past, ignore cash flow
     if today > cf.payment_date:
         return 0
 
     years = years_difference(today, cf.payment_date)
-    return cf.amount * math.exp(-1.0 * market.discount_factor(cf.payment_date, cf.currency) * years)
+    df = market.discount_factor(cf.payment_date, cf.currency)
+    return cf.amount * df
 
 
 @dispatch(BASE_TYPES)
