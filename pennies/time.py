@@ -1,19 +1,10 @@
+"""Daycount calculations, Schedule creation, and so on."""
 from __future__ import absolute_import, division, print_function
 
 import datetime as dt
-
-
-def calendar_date(date_time):
-    """
-    if isinstance(date_time, dt.datetime):
-        return date_time.date()
-    elif not isinstance(date_time, dt.date):
-        raise ValueError('Expecting date or datetime. Found {} of type {}'
-                         .format(date_time, type(date_time)))
-    return date_time
-    """
-    # TODO Need vectorized versions.
-    return date_time
+import numpy as np
+import pandas as pd
+from pandas import Series
 
 
 def to_datetime(date):
@@ -26,8 +17,16 @@ def to_datetime(date):
         return date
 
 
-def act365_fixed(dt_start, dt_end):
-    return (calendar_date(dt_end) - calendar_date(dt_start)).days / 365.0
+def act365_fixed(start, end):
+    if isinstance(start, pd.DatetimeIndex):
+        start = Series(start)
+    if isinstance(end, pd.DatetimeIndex):
+        end = Series(end)
+    if isinstance(start, Series) or isinstance(end, Series):
+        return (end - start) / np.timedelta64(365, 'D')
+    else:
+        return (end - start).days / 365.0
+
 
 _map_daycounts = {'ACT365FIXED': act365_fixed}
 """Standard day count conventions for computing year fractions."""

@@ -13,7 +13,7 @@ Most likely, Markets will be constructed by @classmethod
 
 """
 from __future__ import absolute_import, division, print_function
-
+from pennies.market.curves import Curve
 
 class Market(object):
     """ Market base class.
@@ -66,6 +66,10 @@ class RatesTermStructure(Market):
                                  "contains more than one of them.")
         return self.map_discount_curves[currency].discount_factor(date)
 
+    def ibor_curve(self, currency, frequency) -> Curve:
+        """ Return IBOR curve for requested frequency and currency"""
+        return self.map_curves[currency][frequency]
+
     @classmethod
     def of_single_curve(cls, dt_valuation, yield_curve):
         """Create market consisting of a single discount curve, and a valid date
@@ -73,4 +77,19 @@ class RatesTermStructure(Market):
         If forward rates are to be computed, the discount curve will be used.
         """
         curve_map = {yield_curve.currency: {"discount": yield_curve}}
+        return cls(dt_valuation, curve_map)
+
+    @classmethod
+    def from_curve_map(cls, dt_valuation, curve_map):
+        """Create market consisting of a map of curves.
+
+        The map is a dictionary of dictionaries.
+        The top level keys are currency strings.
+        The next level are strings describing the curves in that currency.
+        One curve key in each currency must be named 'discount'.
+        The others are frequencies defined as an integer number of months.
+
+        These 'frequency' curves are used to produce forward ibor rates,
+        from pseudo-discount factors.
+        """
         return cls(dt_valuation, curve_map)

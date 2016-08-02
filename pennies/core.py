@@ -13,6 +13,9 @@ class CurrencyAmount(object):
         self.amount = amount
         self.currency = currency
 
+    def __str__(self):
+        return '{} {}'.format(self.amount, self.currency)
+
     def __add__(self, other):
         assert isinstance(other, CurrencyAmount),\
             "Cannot add CurrencyAmount to anything but another CurrencyAmount"
