@@ -1,0 +1,5 @@
+multipledispatch=0.4.8
+pandas=0.18.1
+pytest=2.9.2
+pytest-cov=2.2.1
+scipy=0.18.0

@@ -1,16 +1,20 @@
 language: python
-sudo: false
 
-env:
-  matrix:
-    - PYTHON=2.7 NUMPY=1.10.4 COVERAGE='false'
-    - PYTHON=2.7 NUMPY=1.11.0 COVERAGE='false'
-    - PYTHON=3.4 NUMPY=1.10.4 COVERAGE='false'
-    - PYTHON=3.5 NUMPY=1.11.0 COVERAGE='true'
+python:
+  - "2.7"
+  - "3.4"
+  - "3.5"
 
 install:
   # Install conda
-  - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+  - sudo apt-get update
+  # We do this conditionally because it saves us some downloading if the
+  # version is the same.
+  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
+      wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh;
+    else
+      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+    fi
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
   - conda config --set always_yes yes --set changeps1 no
@@ -18,9 +22,9 @@ install:
   - conda info -a
 
   # Install dependencies
-  - conda create -n test-environment python=$PYTHON
+  - conda create -n test-environment python=$TRAVIS_PYTHON_VERSION
   - source activate test-environment
-  - conda install numpy=$NUMPY scipy pytest pytest-cov
+  - conda install --file requirements.txt
 
   # Install package
   # (from dask) - pip install --no-deps -e .[complete]
@@ -30,10 +34,12 @@ install:
   - pip install --pre --no-index --find-links dist/ pennies
 
 script:
-  - if [[ $COVERAGE == 'true' ]]; then py.test --cov --cov-report=html -vv -s --pyarg --doctest-modules pennies; fi
+  - py.test --cov --cov-report=html -vv -s --pyarg --doctest-modules pennies
 
 after_success:
-  - if [[ COVERAGE == 'true' ]]; then coverage report --show-missing; pip install coveralls ; coveralls ; fi
+  - coverage report --show-missing
+  - pip install coveralls
+  - coveralls
 
 #notifications:
 #  email: false
