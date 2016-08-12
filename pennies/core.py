@@ -76,3 +76,64 @@ class CurrencyAmount(object):
         self.amount /= other
         return self
 
+
+# TODO - Add tests of CurrencyWallet. Extend overrides.
+class CurrencyWallet(object):
+    """Dictionary of Currency (str) to CurrencyAmount
+
+    This allows one to sum up the values of assets, or cashflows in different
+    currencies without immediately converting them to a single currency given
+    a foreign exchange rate, or raise an exception.
+    """
+    def __init__(self, ccy_amt: CurrencyAmount=None):
+        self._wallet = {}
+        if ccy_amt is None:
+            return
+        elif isinstance(ccy_amt, CurrencyAmount):
+            self._wallet[ccy_amt.currency] = ccy_amt
+        else:
+            raise ValueError('Constructor takes a CurrencyAmount or None')
+
+    def __str__(self):
+        return str(self._wallet)
+
+    def __add__(self, other):
+        res = CurrencyWallet()
+        res._wallet = dict(self._wallet)
+        if isinstance(other, None):
+            return res
+        elif isinstance(other, CurrencyAmount):
+            ccy = other.currency
+            if ccy in res._wallet:
+                res._wallet[ccy].amount += other.amount
+            else:
+                res._wallet[ccy] = other
+            return res
+        elif isinstance(other, CurrencyWallet):
+            for ccy in other._wallet.keys():
+                if ccy in res._wallet:
+                    res._wallet[ccy].amount += other.amount
+                else:
+                    res._wallet[ccy] = other
+            return res
+        else:
+            raise ValueError('CurrencyWallet addition only works on '
+                             'a CurrencyAmount or a CurrencyWallet')
+
+    def __iadd__(self, other):
+        if isinstance(other, None):
+            return self
+        if isinstance(other, CurrencyAmount):
+            ccy = other.currency
+            if ccy in self._wallet:
+                self._wallet[ccy].amount += other.amount
+            else:
+                self._wallet[ccy] = other
+            return self
+        elif isinstance(other, CurrencyWallet):
+            for ccy in other._wallet.keys():
+                self  += other._wallet[ccy]
+            return self
+        else:
+            raise ValueError('CurrencyWallet addition only works on '
+                             'a CurrencyAmount or a CurrencyWallet')

@@ -8,9 +8,11 @@ from __future__ import absolute_import, division, print_function
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
+from enum import Enum
+from numbers import Number
+
 from pandas.tseries.offsets import DateOffset, CustomBusinessDay
 from pennies.time import daycount
-from enum import Enum
 
 
 class RateType(Enum):
@@ -125,7 +127,7 @@ class Annuity(Asset):
 
     # TODO This will remain incomplete, in the sense that it only captures
     # TODO the Vanilla case. For example, it does not handle stubs.
-
+    #      Short | Long + Front | Back
     # TODO Need to define set of conventions for daycount calculations
     # TODO Need to define set of conventions business day adjustments
     # TODO Need to add holiday calendars
@@ -233,10 +235,11 @@ class Annuity(Asset):
 
 class FixedLeg(Annuity):
 
-    def __init__(self, df):
+    def __init__(self, df, fixed_rate=1.0):
         super(FixedLeg, self).__init__(df)
         self.type = RateType.FIXED
         self.frame['type'] = self.type
+        self.fixed_rate = fixed_rate
 
     @classmethod
     def from_tenor(cls, dt_settlement, tenor, frequency, rate=1.0, dcc=None,
@@ -246,7 +249,10 @@ class FixedLeg(Annuity):
                                      dcc, notional, currency, receive,
                                      payment_lag, bday, stub,
                                      rate_type=RateType.FIXED)
-        return FixedLeg(annuity.frame)
+        if isinstance(rate, Number):
+            return FixedLeg(annuity.frame, fixed_rate=rate)
+        else:
+            raise NotImplementedError("FixedLeg requires scalar rate.")
 
 
 class IborLeg(Annuity):
@@ -300,6 +306,7 @@ class Swap(CompoundAsset):
 
 
 class VanillaSwap(Swap):
+    # TODO: Should I include whether this is a PAYER or RECEIVER?
     def __init__(self, fixed_leg: FixedLeg, floating_leg: IborLeg):
         assert fixed_leg.currency == floating_leg.currency, \
             'Currencies differ in legs of VanillaSwap'
@@ -365,7 +372,6 @@ class CurrencySwap(Swap):
         raise NotImplementedError
 
 if __name__ == '__main__':
-
     import datetime as dt
     dt_settle = dt.date.today()
     length = 24  # months
@@ -379,6 +385,5 @@ if __name__ == '__main__':
     df = fixed.frame
     cols = df.columns
     len(df)
-
 
     print('FIN')

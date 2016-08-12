@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 from pennies.trading.assets import BulletPayment
-from .assets import AssetCalculator
+from pennies.calculators.assets import AssetCalculator
 from pennies.core import CurrencyAmount
 
 

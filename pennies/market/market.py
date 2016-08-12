@@ -48,11 +48,12 @@ class RatesTermStructure(Market):
         Within each currency dictionary, 'disount' must exist.
     """
 
-    def __init__(self, dt_valuation, map_curves=None):
+    def __init__(self, dt_valuation, map_curves=None,map_fx=None):
         super(RatesTermStructure, self).__init__(dt_valuation)
         self.map_curves = map_curves
         self.map_discount_curves = {ccy: self.map_curves[ccy]["discount"]
                                     for ccy in map_curves}
+        self.map_fx = map_fx
 
     def discount_curve(self, currency):
         return self.map_curves[currency]["discount"]
@@ -68,7 +69,24 @@ class RatesTermStructure(Market):
 
     def ibor_curve(self, currency, frequency) -> Curve:
         """ Return IBOR curve for requested frequency and currency"""
-        return self.map_curves[currency][frequency]
+        try:
+            ccy_map = self.map_curves[currency]
+        except KeyError:
+            raise ValueError('Requested currency not present in market: {}'
+                             .format(currency))
+        try:
+            return ccy_map[frequency]
+        except KeyError as err:
+            if 'discount' in ccy_map.keys():
+                return ccy_map['discount']
+            else:
+                raise KeyError('Ibor rate requested from market that contains'
+                               'neither a discount curve or frequency: {}.'
+                               'Perhaps the currency is wrong.'
+                               .format(frequency))
+
+    def fx(self, this_ccy, per_that_ccy):
+        raise NotImplementedError('Foreign Exchange not yet implemented')
 
     @classmethod
     def of_single_curve(cls, dt_valuation, yield_curve):

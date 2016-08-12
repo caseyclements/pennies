@@ -1,9 +1,5 @@
 from __future__ import absolute_import, division, print_function
 
-from pennies.trading import assets
-from . import payments
-
-
 class AssetCalculator(object):
 
     def __init__(self, contract, market):
@@ -22,8 +18,10 @@ class AssetCalculator(object):
 def all_calculators():
     return AssetCalculator.__subclasses__()
 
-# TODO Is there a way to avoid setting this manually?
+
 def default_calculators():
+    from pennies.trading import assets
+    from pennies.calculators import payments
     return {
         str(assets.BulletPayment): payments.BulletPaymentCalculator,
         str(assets.DiscountBond): payments.BulletPaymentCalculator,

@@ -10,7 +10,6 @@ from pennies.market.market import RatesTermStructure
 from pennies.calculators.payments import BulletPaymentCalculator
 from pennies.calculators.trades import TradeCalculator
 from pennies.core import CurrencyAmount
-from pennies.time import daycount
 
 # TODO - Should this be a class of, or a number of individual, tests?
 
@@ -24,7 +23,7 @@ trade = trades.Trade(contract=bullet)
 rate_discount = 0.05
 crv_discount = ConstantDiscountRateCurve(
     dt_valuation=dt_val, zero_rate=rate_discount,
-    daycount_function=daycount('ACT365FIXED'), currency=ccy)
+    daycount_conv='ACT365FIXED', currency=ccy)
 market = RatesTermStructure.of_single_curve(dt_val, crv_discount)
 expected_contract_pv = 4976605.8
 

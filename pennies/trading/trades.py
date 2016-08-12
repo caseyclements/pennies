@@ -107,9 +107,13 @@ class Portfolio(object):
     subportfolios: dict
         Dictionary where values are of Portfolio
     """
-    def __init(self, trades=None, subportfolios=None):
-        self.trades = trades
-        self.subportfolios = subportfolios
+    def __init__(self, trades=None, subportfolios=None):
+        self.trades = []
+        self.subportfolios = {}
+        if trades is not None:
+            self.trades = list(trades)
+        if subportfolios is not None:
+            self.subportfolios = dict(subportfolios)
 
     @classmethod
     def of_trades(cls, trades):

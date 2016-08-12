@@ -29,7 +29,7 @@ def act365_fixed(start, end):
 
 
 _map_daycounts = {'ACT365FIXED': act365_fixed}
-"""Standard day count conventions for computing year fractions."""
+"""Map of Standard day count conventions for computing year fractions."""
 # TODO - Is this to remain? should it be a dictionary to functions?
 
 
