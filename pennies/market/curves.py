@@ -32,6 +32,7 @@ from pennies import time
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
+from pennies.market.interpolate import CubicSplineWithNodeSens
 
 
 class Curve(object):
@@ -49,6 +50,7 @@ class DiscountCurve(Curve):
 
     def __call__(self, date, *args, **kwargs):
         """Discount Factor implied by curve's term structure"""
+        # TODO - SHOULD _call_ BE PRICES OR RATES?!?
         return self.discount_factor(date)
 
     def discount_factor(self, date):
@@ -96,24 +98,32 @@ class ConstantDiscountRateCurve(DiscountCurve):
             according to providing time._map_daycounts
         """
 
+    def __call__(self, ttm):
+        return self.zero_rate
+
     def discount_factor(self, dates):
         """Discount Factor implied by curve's term structure"""
         ttm = self.daycount_fn(self.dt_valuation, dates)
         return np.exp(-ttm * self.zero_rate)
 
-    def rate_sensitivity(self, dates):
-        """ Sensitivity of the discount_factor to a unit change in the rate.
+    def rate_sensitivity(self, ttm):
+        """Sensitivity of interpolated point to node: dy(x)/dy_i
 
-        In the simple case of a constant curve of continuously-compounded
-        discount (zero) rates, d(PV)/dr = -(T-t) * PV(r, T-t)
+        Sensitivity of rate at time, ttm, to a unit move in the rate of each
+         node in the curve. As this curve has a constant flat rate, this simply
+         returns 1.
 
-        Notes
-        -----
-        This is the sensitivity to the discount rate, not the rate associated
-        with any market par-rate.
+        Parameters
+        ----------
+        ttm: array-like
+            Time in years from valuation date to some rate's maturity date.
+
+        Returns
+        -------
+        array-like
+            shape = ttm.shape + curve.node_dates.shape
         """
-        ttm = self.daycount_fn(self.dt_valuation, dates)
-        return -ttm * np.exp(-ttm * self.zero_rate)
+        return np.ones_like(ttm)
 
 
 class DiscountCurveWithNodes(DiscountCurve):
@@ -167,30 +177,47 @@ class DiscountCurveWithNodes(DiscountCurve):
             'dt': node_dates,
             'rates': node_rates})
 
-        self.rate_fn = interpolator(self.node_ttm, node_rates, **interp_kwargs)
+        self._interpolator = interpolator(self.node_ttm, node_rates,
+                                          **interp_kwargs)
 
-    def discount_rates(self, dates):
-        """Interpolated discount rates, ZeroCouponBond(ttm) = exp(-r * ttm)"""
+    def rates_given_dates(self, dates):
+        """Interpolated rates, r(ttm) = -log(ZeroCouponBond(ttm)) / ttm"""
         ttm = self.daycount_fn(self.dt_valuation, dates)
-        return self.rate_fn(ttm)
+        return self._interpolator(ttm)
+
+    def rates_given_ttm(self, ttm):
+        """Interpolated rates, r(ttm) = -log(ZeroCouponBond(ttm)) / ttm"""
+        return self._interpolator(ttm)
 
     def discount_factor(self, dates):
         """Discount Factor implied by curve's term structure"""
         ttm = self.daycount_fn(self.dt_valuation, dates)
-        return np.exp(-ttm * self.rate_fn(ttm))
+        return np.exp(-ttm * self._interpolator(ttm))
 
-    def rate_sensitivity(self, dates):
-        """ Sensitivity of discount_factor(s) to a unit change in the rate(s).
+    def __call__(self, dates):
+        """Return interpolated disount rates at given dates.
 
-        In the simple case of a constant curve of continuously-compounded
-        discount (zero) rates, d(PV)/dr = -(T-t) * PV(r, T-t)
-
-        Notes
-        -----
-        This is the sensitivity to the discount rate, not the rate associated
-        with any market par-rate.
-
-        Values are not scaled. For example, to get sens to 1bp, divide by 10000.
+        r(ttm) = -log(ZeroCouponBond(ttm)) / ttm
         """
-        ttm = self.daycount_fn(self.dt_valuation, dates)
-        return -ttm * np.exp(-ttm * self.rate_fn(ttm))
+        return self.rates_given_dates(dates)
+
+    def rate_sensitivity(self, ttm):
+        """Sensitivity of interpolated point to node: dy(x)/dy_i
+
+        Sensitivity of rate at time, ttm, to a unit move in the rate of each
+         node in the curve. Hence, for each ttm, a vector is returned.
+
+        Parameters
+        ----------
+        ttm: array-like
+            Time in years from valuation date to some rate's maturity date.
+
+        Returns
+        -------
+        array-like
+            shape = ttm.shape + curve.node_dates.shape
+        """
+        if isinstance(self._interpolator, CubicSplineWithNodeSens):
+            return self._interpolator.node_derivative(ttm)
+        else:
+            raise NotImplementedError("Requires CubicSplineWithNodeSens")

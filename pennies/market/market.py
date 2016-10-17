@@ -13,7 +13,10 @@ Most likely, Markets will be constructed by @classmethod
 
 """
 from __future__ import absolute_import, division, print_function
-from pennies.market.curves import Curve
+import pandas as pd
+from pandas import DataFrame
+from pennies.market.curves import Curve, DiscountCurveWithNodes
+
 
 class Market(object):
     """ Market base class.
@@ -41,6 +44,10 @@ class RatesTermStructure(Market):
     interest rates, along with associated discount factors, and meta data.
     Calibration should be such that only one RatesTermStructure
 
+     The core of a RatesTermStructure is a dt_valuation, and a dict of curves,
+    map_curves. The is keyed off currency, then name, which must include
+    'discount'. The others will typically be ibor frequencies: 3, 6, ..
+
     Attributes
     ----------
     map_curves: dict of dict
@@ -48,7 +55,7 @@ class RatesTermStructure(Market):
         Within each currency dictionary, 'disount' must exist.
     """
 
-    def __init__(self, dt_valuation, map_curves=None,map_fx=None):
+    def __init__(self, dt_valuation, map_curves=None, map_fx=None):
         super(RatesTermStructure, self).__init__(dt_valuation)
         self.map_curves = map_curves
         self.map_discount_curves = {ccy: self.map_curves[ccy]["discount"]
@@ -77,7 +84,7 @@ class RatesTermStructure(Market):
         try:
             return ccy_map[frequency]
         except KeyError as err:
-            if 'discount' in ccy_map.keys():
+            if len(ccy_map) == 1:
                 return ccy_map['discount']
             else:
                 raise KeyError('Ibor rate requested from market that contains'
@@ -87,6 +94,49 @@ class RatesTermStructure(Market):
 
     def fx(self, this_ccy, per_that_ccy):
         raise NotImplementedError('Foreign Exchange not yet implemented')
+
+    def rate_sensitivity(self, ttm, currency, curve_key):
+        """Sensitivity of interpolated point to node: dy(x)/dy_i
+
+        Sensitivity of rate at time, ttm, to a unit move in the rate of each
+         node in the curve. Hence, for each ttm, a vector is returned.
+
+        Parameters
+        ----------
+        ttm: array-like
+            Time in years from valuation date to some rate's maturity date.
+        currency: str
+            Currency of the curve.
+        curve_key:
+            Key to the curve in map_curves.
+
+        Returns
+        -------
+        array-like
+            shape = ttm.shape + curve.node_dates.shape
+        """
+        return self.map_curves[currency][curve_key].rate_sensitivity(ttm)
+
+
+    @property
+    def nodes_dataframe(self):
+        df = DataFrame(columns=['ttm', 'rates', 'ccy', 'curve'])
+        for ccy, curves in self.map_curves.items():
+            df_ccy = DataFrame(columns=['curve', 'ttm', 'rates'])
+            for key, crv in curves.items():
+                if not isinstance(crv, DiscountCurveWithNodes):
+                    raise ValueError('curve with ccy={}, id={}, is not a '
+                                     'DiscountCurveWithNodes'.format(ccy, key))
+                df_crv = crv.frame.loc[:, ['ttm', 'rates']]
+                df_crv['ccy'] = ccy
+                df_crv['curve'] = key
+                if key == 'discount':
+                    df_ccy = pd.concat([df_crv, df_ccy], ignore_index=True)
+                else:
+                    df_ccy = pd.concat([df_ccy, df_crv], ignore_index=True)
+            df = pd.concat([df, df_ccy], ignore_index=True)
+        df.sort(columns=['ccy','ttm'], inplace=True)
+        return df
 
     @classmethod
     def of_single_curve(cls, dt_valuation, yield_curve):
