@@ -64,7 +64,6 @@ def test_price():
             'Call with 0 variance remaining is not matching payoff')
         
         # 8. forward < 0
-        print('negative forward prices = {}'.format(prices[0,:]))
         assert np.all(np.isnan(prices[0,:])), (
             'negative forwards are producing non-nan prices')
     
