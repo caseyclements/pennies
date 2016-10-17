@@ -3,7 +3,6 @@ from __future__ import absolute_import, division, print_function
 
 from pennies.trading.trades import Trade, Portfolio
 from pennies.market.market import RatesTermStructure
-from pennies.core import CurrencyAmount
 from pennies.dispatch import dispatch
 # TODO Refactor to remove the Calculator
 from pennies.calculators.payments import BulletPaymentCalculator
@@ -14,7 +13,7 @@ from pennies.calculators.swaps import present_value
 @dispatch(Trade, RatesTermStructure, str)
 def present_value(trade, market, reporting_ccy):
     """Present Value of Trade and RatesTermStructure"""
-    pv = present_value(trade.contract, market, reporting_ccy)  # TODO Will it be able to dispatch to correct contract type??
+    pv = present_value(trade.contract, market, reporting_ccy)
     if trade.settlement is not None:
         pv += present_value(trade.settlement, market)
     return pv
@@ -23,7 +22,7 @@ def present_value(trade, market, reporting_ccy):
 @dispatch(Portfolio, RatesTermStructure, str)
 def present_value(portfolio, market, reporting_ccy):
     """Present Value of Trade and RatesTermStructure"""
-    pv = CurrencyAmount(0.0, reporting_ccy)  # TODO Test CurrencyAmount + scalar, and adding different currencies!!!
+    pv = 0.0
     for t in portfolio.trades:
         pv += present_value(t, market, reporting_ccy)
     for p in portfolio.subportfolios:
@@ -45,7 +44,7 @@ class TradeCalculator(object):
             self.settlement_ccr = BulletPaymentCalculator(trade.settlement,
                                                           market)
 
-    # TODO - Is there a way that I can get the calculators available for trade?
+    # TODO - Is there a way to get all calculators available for trade?
     def present_value(self):
         pv = self.asset_ccr.present_value()
         if self.settlement_ccr is not None:
