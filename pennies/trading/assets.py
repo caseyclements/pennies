@@ -25,12 +25,15 @@ class Asset(object):
     """Base class of all Financial Assets"""
 
     def __init__(self):
-        pass
+        self.frame = pd.DataFrame()
 
     # TODO - Ask whether the Visitor Pattern is a good idea in Python
     def accept(self, visitor, *args, **kwargs):
         """Accepts visitors that calculate various measures on the Asset"""
         return visitor.visit(Asset, *args, **kwargs)
+
+    def __eq__(self, other):
+        return self.frame.equals(other.frame)
 
 
 def all_assets():
@@ -132,7 +135,7 @@ class Annuity(Asset):
     # TODO Need to define set of conventions business day adjustments
     # TODO Need to add holiday calendars
 
-    def __init__(self, df):
+    def __init__(self, df, notl_exchange=True):
         """Create Annuity from DataFrame.
 
         Not meant to be the primary constructor.
@@ -143,14 +146,17 @@ class Annuity(Asset):
         Parameters
         ----------
         df: DataFrame
-        Required columns =  ['start','end', 'pay', 'fixing',
+            Required columns =  ['start','end', 'pay', 'fixing',
         'period', 'frequency', 'notional', 'dcc','lag_pay', 'bday_adj', 'stub']
+        notl_exchange: bool
+            If true, notional is paid at the final pay date
         """
         super(Annuity, self).__init__()
         # Primary representation
         self.frame = df
         # Scalar Metadata
         self.type = df.get('type')
+        self.notl_exchange = notl_exchange
         try:
             self.currency = df['currency'].iloc[0]
         except KeyError:
@@ -165,7 +171,8 @@ class Annuity(Asset):
     @classmethod
     def from_tenor(cls, dt_settlement, tenor, frequency, rate=1.0, dcc=None,
                    notional=1.0, currency='USD', receive=True, payment_lag=0,
-                   bday=None, stub='front', rate_type=RateType.FIXED):
+                   bday=None, stub='front', notl_exchange=True,
+                   rate_type=RateType.FIXED):
         """Construct a fixed rate Annuity from start date, length and frequency.
 
         Parameters
@@ -194,6 +201,8 @@ class Annuity(Asset):
         stub: str, optional
             If schedule building leads to one period of different length,
             this decides if it is the first ('front') or last period ('back').
+        notl_exchange: bool
+            If true, notional is paid at the final pay date
         rate_type: str, optional
             Defines whether the rate being paid is fixed, or of some floating
             index such as an IBOR.
@@ -223,37 +232,47 @@ class Annuity(Asset):
         year_frac = daycount(dcc)(frame.start, frame.end)
         frame['period'] = year_frac
 
-        return Annuity(frame)
+        return Annuity(frame, notl_exchange=notl_exchange)
 
     @classmethod
-    def from_frame(cls, df):
-        return Annuity(df)
+    def from_frame(cls, df, notl_exchange=True):
+        return Annuity(df, notl_exchange=notl_exchange)
 
     def __str__(self):
         return str(self.frame)
 
+    def __eq__(self, other):
+        return (isinstance(other, Annuity) and
+               super(Annuity, self).__eq__(other))
+
 
 class FixedLeg(Annuity):
 
-    def __init__(self, df, fixed_rate=1.0):
-        super(FixedLeg, self).__init__(df)
+    def __init__(self, df, fixed_rate=1.0, notl_exchange=True):
+        super(FixedLeg, self).__init__(df, notl_exchange=notl_exchange)
         self.type = RateType.FIXED
         self.frame['type'] = self.type
-        self.fixed_rate = fixed_rate
+
+    def __eq__(self, other):
+        return (isinstance(other, FixedLeg) and
+                super(FixedLeg, self).__eq__(other))
 
     @classmethod
-    def from_tenor(cls, dt_settlement, tenor, frequency, rate=1.0, dcc=None,
+    def from_tenor(cls, dt_settlement, tenor, frequency, rate=1.0, dcc='ACT365FIXED',
                    notional=1.0, currency='USD', receive=True, payment_lag=0,
-                   bday=None, stub='front'):
+                   bday=None, stub='front', notl_exchange=True):
         annuity = Annuity.from_tenor(dt_settlement, tenor, frequency, rate,
                                      dcc, notional, currency, receive,
-                                     payment_lag, bday, stub,
+                                     payment_lag, bday, stub, notl_exchange,
                                      rate_type=RateType.FIXED)
         if isinstance(rate, Number):
             return FixedLeg(annuity.frame, fixed_rate=rate)
         else:
             raise NotImplementedError("FixedLeg requires scalar rate.")
 
+    @classmethod
+    def from_frame(cls, df, fixed_rate=1.0, notl_exchange=True):
+        return FixedLeg(df, fixed_rate=fixed_rate, notl_exchange=notl_exchange)
 
 class IborLeg(Annuity):
     """Series of coupons based on fixings of an IBOR.
@@ -261,7 +280,7 @@ class IborLeg(Annuity):
         IBOR = Inter-Bank Offered Rate, eg 3M USD LIBOR (3-month dollar Libor)
         Used as Floating Leg of a Swap or Floating Rate Note.
     """
-    def __init__(self, df):
+    def __init__(self, df, notl_exchange=True):
         """Compute from DataFrame.
 
         This is unlikely to be the primary constructor, but classmethods must
@@ -274,27 +293,34 @@ class IborLeg(Annuity):
         'period', 'frequency', 'notional', 'dcc','lag_pay', 'bday_adj', 'stub']
         """
         # Primary representation
-        super(IborLeg, self).__init__(df)
-        self.rate_type = RateType.IBOR
+        super(IborLeg, self).__init__(df, notl_exchange=notl_exchange)
+        self.type = RateType.IBOR
         self.frame['rate_type'] = self.type
 
     @classmethod
     def from_tenor(cls, dt_settlement, tenor, frequency, rate=None, dcc=None,
                    notional=1.0, currency='USD', receive=True, payment_lag=0,
-                   fixing_lag=0, bday=None, stub='front'):
+                   fixing_lag=0, bday=None, stub='front', notl_exchange=True):
 
         annuity = Annuity.from_tenor(dt_settlement, tenor, frequency, rate,
                                      dcc, notional, currency, receive,
-                                     payment_lag, bday, stub,
+                                     payment_lag, bday, stub, notl_exchange,
                                      rate_type=RateType.IBOR)
 
         df = annuity.frame
-        df['fixing'] = df['start'] + CustomBusinessDay(fixing_lag)
-        return IborLeg(df)
+        if fixing_lag:
+            df['fixing'] = df['start'] + CustomBusinessDay(fixing_lag)
+        else:
+            df['fixing'] = df['start']
+        return IborLeg(df, notl_exchange=notl_exchange)
 
     @classmethod
-    def from_frame(cls, df):
-        return IborLeg(df)
+    def from_frame(cls, df, notl_exchange=True):
+        return IborLeg(df, notl_exchange=notl_exchange)
+
+    def __eq__(self, other):
+        return (isinstance(other, IborLeg) and
+                super(IborLeg, self).__eq__(other))
 
 
 class Swap(CompoundAsset):
@@ -304,13 +330,19 @@ class Swap(CompoundAsset):
         self.leg_receive = receive_leg
         self.leg_pay = pay_leg
 
+    def __eq__(self, other):
+        return (isinstance(other, Swap) and
+                self.leg_pay == other.leg_pay and
+                self.leg_receive == other.leg_receive)
+
 
 class VanillaSwap(Swap):
-    # TODO: Should I include whether this is a PAYER or RECEIVER?
     def __init__(self, fixed_leg: FixedLeg, floating_leg: IborLeg):
         assert fixed_leg.currency == floating_leg.currency, \
             'Currencies differ in legs of VanillaSwap'
+        assert fixed_leg.type == RateType.FIXED
         self.leg_fixed = fixed_leg
+        assert floating_leg.type == RateType.IBOR
         self.leg_float = floating_leg
         initial_notl_fixed = fixed_leg.frame.notional.iloc[0]
         initial_notl_float = floating_leg.frame.notional.iloc[0]
@@ -323,6 +355,10 @@ class VanillaSwap(Swap):
             super(VanillaSwap, self).__init__(receive_leg=floating_leg,
                                               pay_leg=fixed_leg)
 
+    def __eq__(self, other):
+        return (isinstance(other, VanillaSwap) and
+                self.leg_fixed == other.leg_fixed and
+                self.leg_float == other.leg_float)
 
 class FRA(Asset):
     """Forward Rate Agreement"""
@@ -370,20 +406,3 @@ class CurrencySwap(Swap):
 
     def __init__(self):
         raise NotImplementedError
-
-if __name__ == '__main__':
-    import datetime as dt
-    dt_settle = dt.date.today()
-    length = 24  # months
-    freq = 6  # months
-    rate = 0.03
-    notl = 100
-    pay_lag = 2  # days
-    fixed = Annuity(dt_settle, tenor=length, frequency=freq,
-                    fixed_rate=rate, notional=notl, payment_lag=pay_lag)
-
-    df = fixed.frame
-    cols = df.columns
-    len(df)
-
-    print('FIN')
