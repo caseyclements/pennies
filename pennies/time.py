@@ -1,20 +1,11 @@
 """Daycount calculations, Schedule creation, and so on."""
 from __future__ import absolute_import, division, print_function
 
-import datetime as dt
 import numpy as np
 import pandas as pd
 from pandas import Series
 
-
-def to_datetime(date):
-    if isinstance(date, dt.date):
-        return dt.datetime(date.year, date.month, date.day)
-    elif not isinstance(date, dt.datetime):
-        raise ValueError('Expecting date or datetime. Found {} of type {}'
-                         .format(date, type(date)))
-    else:
-        return date
+from pandas.tseries.tools import normalize_date, to_datetime
 
 
 def act365_fixed(start, end):

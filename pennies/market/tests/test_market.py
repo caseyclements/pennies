@@ -55,7 +55,7 @@ def test_rates_term_structure():
 
     market = RatesTermStructure.from_curve_map(dt_val, curve_map)
 
-    df = market.nodes_dataframe
+    df = market.nodes
 
     assert len(df) == 25
     assert set(df.curve[df.ccy == 'USD'].unique()) == set(['discount', 8, 12])

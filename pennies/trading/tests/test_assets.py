@@ -104,7 +104,6 @@ def test_fixing_lag():
                   leg_no_lag.frame['fixing'] + Timedelta(days=1))
 
 
-
 def test_vanilla_swap():
     fixed_leg = FixedLeg.from_tenor(dt_settlement=dt_settle, tenor=length,
                                     frequency=frqncy, rate=fixed_rate,
@@ -117,10 +116,24 @@ def test_vanilla_swap():
     assert swap.leg_receive == fixed_leg
     assert swap.leg_pay == float_leg
 
+
+def test_using_from_tenor_with_datetime():
+    now = dt.datetime.now()
+    fixed = Annuity.from_tenor(now, tenor=length,
+                               frequency=frqncy, rate=fixed_rate,
+                               notional=notional, payment_lag=payment_lag)
+    assert type(fixed) == Annuity
+    df = fixed.frame
+    assert type(df) == DataFrame
+    cols = df.columns
+    assert len(cols) == 13
+    assert len(df) == 4
+
 if __name__ == '__main__':
     #test_annuity_from_tenor()
     #test_fixedleg()
     #test_iborleg()
     #test_swap()
-    test_fixing_lag()
+    #test_fixing_lag()
     #test_vanilla_swap()
+    test_using_from_tenor_with_datetime()

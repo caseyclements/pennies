@@ -1,6 +1,5 @@
 from __future__ import absolute_import, division, print_function
 
-import datetime as dt
 from pandas import DataFrame, Series
 from numpy import zeros
 
@@ -87,9 +86,9 @@ def ibor_rate(contract: IborLeg, market: RatesTermStructure):
     and fixing and payment dates.
     """
 
-    crv_pay = market.ibor_curve(contract.currency, contract.frequency)
-    zcb_pay = crv_pay.discount_factor(contract.frame.pay)
-    zcb_fix = crv_pay.discount_factor(contract.frame.fixing)
+    crv_fwd, key = market.curve(contract.currency, contract.frequency)
+    zcb_pay = crv_fwd.discount_factor(contract.frame.pay)
+    zcb_fix = crv_fwd.discount_factor(contract.frame.fixing)
     return (zcb_fix / zcb_pay - 1.0) / contract.frame.period
 
 
@@ -142,7 +141,7 @@ def sens_to_zero_rates(contract, market, curve_ccy, curve_key, reporting_ccy):
         if curve_key == 'discount':
             a = contract.frame
             alive = a.pay >= market.dt_valuation
-            crv = market.map_discount_curves[curve_ccy]
+            crv = market.discount_curve(curve_ccy)
             pay_dates = a.pay[alive]
             ttm = crv.daycount_fn(market.dt_valuation, pay_dates)
             zcb = market.discount_factor(pay_dates, currency=contract.currency)
@@ -157,14 +156,11 @@ def sens_to_zero_rates(contract, market, curve_ccy, curve_key, reporting_ccy):
 
 
 @dispatch(IborLeg, RatesTermStructure, str, object, str)
-def sens_to_zero_rates(contract, market, curve_ccy, curve_key, reporting_ccy):
+def sens_to_zero_rates(contract, market, curve_ccy, rate_key, reporting_ccy):
     """Sensitivity of each cashflow to the curve specified by currency and key
 
-    The fixed rate annuity is only sensitive to the discount curve
+    A leg that pays IBOR is sensitive to both the discount and tenor curve
      of the currency in which the cash flows (coupons) are paid.
-
-     If curve_ccy does not match contract.currency,
-     and curve_key is not 'discount' an empty DataFrame is returned.
     """
     df_sens = DataFrame(columns=['ttm', 'sens', 'ccy', 'curve'])
     if curve_ccy == contract.currency:
@@ -176,9 +172,9 @@ def sens_to_zero_rates(contract, market, curve_ccy, curve_key, reporting_ccy):
 
         zcb_pay = market.discount_factor(a.pay, currency=contract.currency)
 
-        if curve_key == 'discount':
+        if rate_key == 'discount':
             unpaid = a.pay >= market.dt_valuation
-            crv = market.map_discount_curves[curve_ccy]
+            crv = market.discount_curve(curve_ccy)
             pay_dates = a.pay[unpaid]
             ttm_pay = crv.daycount_fn(market.dt_valuation, pay_dates)
             sens = -ttm_pay * (zcb_pay * a.notional * a.rate * a.period).loc[unpaid]
@@ -187,17 +183,17 @@ def sens_to_zero_rates(contract, market, curve_ccy, curve_key, reporting_ccy):
             if reporting_ccy != contract.currency:
                 sens *= market.fx(reporting_ccy, contract.currency)
             df_sens = DataFrame({'ttm': ttm_pay, 'sens': sens,
-                                 'ccy': curve_ccy, 'curve': curve_key})
-        elif curve_key == contract.frequency:
-            crv_ibor = market.ibor_curve(contract.currency, contract.frequency)
+                                 'ccy': curve_ccy, 'curve': 'discount'})
+        elif rate_key == contract.frequency:
+            crv, crv_key = market.curve(contract.currency, contract.frequency)
             unfixed = a.fixing >= market.dt_valuation
             pay_dates = a.pay.loc[unfixed]
-            ttm_pay = crv_ibor.daycount_fn(market.dt_valuation, pay_dates)
-            zcbi_pay = crv_ibor.discount_factor(pay_dates)
+            ttm_pay = crv.daycount_fn(market.dt_valuation, pay_dates)
+            zcbi_pay = crv.discount_factor(pay_dates)
 
             fix_dates = a.fixing.loc[unfixed]
-            ttm_fix = crv_ibor.daycount_fn(market.dt_valuation, fix_dates)
-            zcbi_fix = crv_ibor.discount_factor(contract.frame.fixing)
+            ttm_fix = crv.daycount_fn(market.dt_valuation, fix_dates)
+            zcbi_fix = crv.discount_factor(contract.frame.fixing)
 
             scale_factor = zcbi_fix / zcbi_pay * (a.notional * zcb_pay).loc[unfixed]
             sens_pay = ttm_pay * scale_factor
@@ -214,7 +210,7 @@ def sens_to_zero_rates(contract, market, curve_ccy, curve_key, reporting_ccy):
 
             df_sens['ttm'] = df_sens.index
             df_sens['ccy'] = curve_ccy
-            df_sens['curve'] = curve_key
+            df_sens['curve'] = crv_key
 
     return df_sens
 
@@ -236,11 +232,10 @@ def sens_to_market_rates(contract, market, reporting_ccy):
 
     # 3. Sensitivity of the CONTRACT PV to MARKET RATES, dV / dR_j
     # Multiple 1 and 2, and sum over contract dates
-    nodes = market.nodes_dataframe  # df['ttm', 'rates', 'ccy', 'curve']
-    dv_drj = zeros(len(nodes))
+    dv_drj = zeros(len(market.nodes))
 
-    mask_disc = ((nodes.ccy == contract.currency) &
-                (nodes.curve == 'discount')).values
+    mask_disc = ((market.nodes.ccy == contract.currency) &
+                 (market.nodes.curve == 'discount')).values
     dv_drj[mask_disc] = drk_drj_disc.T.dot(dv_drk)
 
     # 1d-array of sensitivities to each of the market's nodes. Lots of 0's
@@ -248,7 +243,7 @@ def sens_to_market_rates(contract, market, reporting_ccy):
 
 
 @dispatch(IborLeg, RatesTermStructure, str)
-def contract_sens_to_market_rates(contract, market, reporting_ccy):
+def sens_to_market_rates(contract, market, reporting_ccy):
     """Compute sensitivity of contract to each node in the market's curves."""
 
     # 1. Sensitivity of the CONTRACT PV to CONTRACT RATES: dV/dR_k
@@ -261,8 +256,9 @@ def contract_sens_to_market_rates(contract, market, reporting_ccy):
     ttm_k_disc = df_pv_sens.ttm
 
     # 1b. ibor curve
-    ibor_key = contract.frequency
+    ibor_key = contract.frequency  #  TODO - IBOR_KEY and contract,frequency should be different things!!!
     df_pv_sens = sens_to_zero_rates(contract, market, ccy, ibor_key, reporting_ccy)
+    ibor_key = df_pv_sens.curve.iat[0]  # May be 'discount', not frequency
     dv_drk_ibor = df_pv_sens.sens.values
     ttm_k_ibor = df_pv_sens.ttm
 
@@ -274,16 +270,14 @@ def contract_sens_to_market_rates(contract, market, reporting_ccy):
 
     # 3. Sensitivity of the CONTRACT PV to MARKET RATES
     # For each curve, multiply 1 and 2, and sum over contract dates
-    nodes = market.nodes_dataframe    # df['ttm', 'rates', 'ccy', 'curve']
+    dv_drj = zeros(len(market.nodes))
+    mask_disc = ((market.nodes.ccy == contract.currency) &
+                 (market.nodes.curve == 'discount')).values
+    dv_drj[mask_disc] = dv_drj[mask_disc] + drk_drj_disc.T.dot(dv_drk_disc)
 
-    dv_drj = zeros(len(nodes))
-    mask_disc = ((nodes.ccy == contract.currency) &
-                 (nodes.curve == 'discount')).values
-    dv_drj[mask_disc] = drk_drj_disc.T.dot(dv_drk_disc)
-
-    mask_ibor = ((nodes.ccy == contract.currency) &
-                 (nodes.curve == ibor_key)).values
-    dv_drj[mask_ibor] = drk_drj_ibor.T.dot(dv_drk_ibor)
+    mask_ibor = ((market.nodes.ccy == contract.currency) &
+                 (market.nodes.curve == ibor_key)).values
+    dv_drj[mask_ibor] = dv_drj[mask_ibor] + drk_drj_ibor.T.dot(dv_drk_ibor)
 
     # 1d-array of sensitivities to each of the market's nodes.
     # May contain many 0's
@@ -299,6 +293,7 @@ def sens_to_market_rates(contract, market, reporting_ccy):
 
 if __name__ == '__main__':
     # TODO Turn this into tests !!!
+    import datetime as dt
     dt_val = dt.date.today()  # note: date
     dt_settle = dt_val - dt.timedelta(days=200)
     length = 24

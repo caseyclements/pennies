@@ -31,8 +31,7 @@ from __future__ import division, print_function
 from pennies import time
 import numpy as np
 import pandas as pd
-from scipy.interpolate import interp1d
-from pennies.market.interpolate import CubicSplineWithNodeSens
+from pennies.market.interpolate import CubicSplineWithNodeSens, PiecewiseLinear
 
 
 class Curve(object):
@@ -48,10 +47,9 @@ class DiscountCurve(Curve):
         super(DiscountCurve, self).__init__(dt_valuation)
         pass
 
-    def __call__(self, date, *args, **kwargs):
-        """Discount Factor implied by curve's term structure"""
-        # TODO - SHOULD _call_ BE PRICES OR RATES?!?
-        return self.discount_factor(date)
+    def __call__(self, date):
+        """Rates implied by curve's term structure"""
+        raise NotImplementedError("DiscountCurve is an abstract base class")
 
     def discount_factor(self, date):
         """Discount Factor implied by curve's term structure"""
@@ -84,7 +82,7 @@ class ConstantDiscountRateCurve(DiscountCurve):
                  currency="USD"):
         super(ConstantDiscountRateCurve, self).__init__(dt_valuation)
         self.zero_rate = zero_rate
-        self.daycount_fn = time._map_daycounts[daycount_conv]
+        self.daycount_fn = time.daycount(daycount_conv)
         self.currency = currency
         """
         Parameters
@@ -98,7 +96,7 @@ class ConstantDiscountRateCurve(DiscountCurve):
             according to providing time._map_daycounts
         """
 
-    def __call__(self, ttm):
+    def __call__(self, dates):
         return self.zero_rate
 
     def discount_factor(self, dates):
@@ -106,6 +104,7 @@ class ConstantDiscountRateCurve(DiscountCurve):
         ttm = self.daycount_fn(self.dt_valuation, dates)
         return np.exp(-ttm * self.zero_rate)
 
+    @staticmethod
     def rate_sensitivity(self, ttm):
         """Sensitivity of interpolated point to node: dy(x)/dy_i
 
@@ -126,6 +125,7 @@ class ConstantDiscountRateCurve(DiscountCurve):
         return np.ones_like(ttm)
 
 
+# TODO - Consider caching discount factors
 class DiscountCurveWithNodes(DiscountCurve):
     """ A Yield Curve defined by nodal points (time-to-maturity, rate).
 
@@ -148,7 +148,7 @@ class DiscountCurveWithNodes(DiscountCurve):
     """
     def __init__(self, dt_valuation, node_dates, node_rates,
                  daycount_conv='ACT365FIXED',
-                 interpolator=interp1d, **interp_kwargs):
+                 interpolator=PiecewiseLinear, **interp_kwargs):
         """
         Parameters
         ----------
@@ -173,12 +173,14 @@ class DiscountCurveWithNodes(DiscountCurve):
         self.daycount_fn = time.daycount(daycount_conv)
         self.node_ttm = self.daycount_fn(dt_valuation, node_dates)
         self.frame = pd.DataFrame({
-            'ttm': self.node_ttm,  # TODO - Should this be index?
+            'ttm': self.node_ttm,
             'dt': node_dates,
-            'rates': node_rates})
+            'rates': node_rates,
+            'dates': node_dates})
 
-        self._interpolator = interpolator(self.node_ttm, node_rates,
+        self._interpolator = interpolator(np.array(self.node_ttm), node_rates,
                                           **interp_kwargs)
+        self._interp_kwargs = interp_kwargs
 
     def rates_given_dates(self, dates):
         """Interpolated rates, r(ttm) = -log(ZeroCouponBond(ttm)) / ttm"""
@@ -195,7 +197,7 @@ class DiscountCurveWithNodes(DiscountCurve):
         return np.exp(-ttm * self._interpolator(ttm))
 
     def __call__(self, dates):
-        """Return interpolated disount rates at given dates.
+        """Return interpolated discount rates at given dates.
 
         r(ttm) = -log(ZeroCouponBond(ttm)) / ttm
         """
@@ -217,7 +219,10 @@ class DiscountCurveWithNodes(DiscountCurve):
         array-like
             shape = ttm.shape + curve.node_dates.shape
         """
-        if isinstance(self._interpolator, CubicSplineWithNodeSens):
+        if (isinstance(self._interpolator, CubicSplineWithNodeSens) or
+            isinstance(self._interpolator, PiecewiseLinear)):
             return self._interpolator.node_derivative(ttm)
         else:
-            raise NotImplementedError("Requires CubicSplineWithNodeSens")
+            raise NotImplementedError(
+                "Requires an interpolator with node_derivative method, "
+                "such as PiecewiseLinear or CubicSplineWithNodeSens")

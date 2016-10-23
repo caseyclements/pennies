@@ -1,17 +1,3 @@
-
-"""
-This is going to undergo a great deal of refactoring as I expand from a single
-fixed cashflow to forward interest rates and then options.
-
-
-We will begin with the most simple market that we can.
-One that is composed strictly of a single curve providing discount factors.
-
-Question. In all situations, must a market require a disount curve? YES
-
-Most likely, Markets will be constructed by @classmethod
-
-"""
 from __future__ import absolute_import, division, print_function
 import pandas as pd
 from pandas import DataFrame
@@ -42,7 +28,9 @@ class RatesTermStructure(Market):
 
     This contains a coherent set of curves to provide discount and forward
     interest rates, along with associated discount factors, and meta data.
-    Calibration should be such that only one RatesTermStructure
+
+    Calibration generally is performed to reprice N market assets,
+    where N is the total of all nodes in all the curves.
 
      The core of a RatesTermStructure is a dt_valuation, and a dict of curves,
     map_curves. The is keyed off currency, then name, which must include
@@ -52,7 +40,7 @@ class RatesTermStructure(Market):
     ----------
     map_curves: dict of dict
         Contains a dictionary of dictionaries. The top key is currency strings.
-        Within each currency dictionary, 'disount' must exist.
+        Within each currency dictionary, 'discount' must exist.
     """
 
     def __init__(self, dt_valuation, map_curves=None, map_fx=None):
@@ -62,7 +50,25 @@ class RatesTermStructure(Market):
                                     for ccy in map_curves}
         self.map_fx = map_fx
 
+        self.nodes = DataFrame(columns=['ttm', 'dates', 'rates', 'ccy', 'curve'])
+        for ccy, curves in self.map_curves.items():
+            df_ccy = DataFrame(columns=['curve', 'ttm', 'dates', 'rates'])
+            for key, crv in curves.items():
+                if not isinstance(crv, DiscountCurveWithNodes):
+                    raise ValueError('curve with ccy={}, id={}, is not a '
+                                     'DiscountCurveWithNodes'.format(ccy, key))
+                df_crv = crv.frame.loc[:, ['ttm', 'dates', 'rates']]
+                df_crv['ccy'] = ccy
+                df_crv['curve'] = key
+                if key == 'discount':
+                    df_ccy = pd.concat([df_crv, df_ccy], ignore_index=True)
+                else:
+                    df_ccy = pd.concat([df_ccy, df_crv], ignore_index=True)
+            self.nodes = pd.concat([self.nodes, df_ccy], ignore_index=True)
+        self.nodes.sort_values(by=['ccy', 'ttm'], inplace=True)
+
     def discount_curve(self, currency):
+        """Access to discount curve for given currency"""
         return self.map_curves[currency]["discount"]
 
     def discount_factor(self, date, currency=None):
@@ -74,23 +80,37 @@ class RatesTermStructure(Market):
                                  "contains more than one of them.")
         return self.map_discount_curves[currency].discount_factor(date)
 
-    def ibor_curve(self, currency, frequency) -> Curve:
-        """ Return IBOR curve for requested frequency and currency"""
+    def curve(self, currency, key) -> Curve:
+        """ Provides curve and its market key that provide rates for input
+
+        Parameters
+        ----------
+        currency: str
+            Currency of the rates required.
+        key:
+            Key used to describe rate.
+            For IBOR, this will be the integer frequency in months
+
+        Returns
+        -------
+        tuple
+            (curve, key) curve in market that produces rates for key requested
+        """
         try:
             ccy_map = self.map_curves[currency]
         except KeyError:
             raise ValueError('Requested currency not present in market: {}'
                              .format(currency))
         try:
-            return ccy_map[frequency]
-        except KeyError as err:
-            if len(ccy_map) == 1:
-                return ccy_map['discount']
-            else:
-                raise KeyError('Ibor rate requested from market that contains'
-                               'neither a discount curve or frequency: {}.'
+            return ccy_map[key], key
+        except KeyError:
+            try:
+                return ccy_map['discount'], 'discount'
+            except KeyError:
+                raise KeyError('Curve requested with key,{}, and currency ,{}, '
+                               'that has neither that key, nor "discount". '
                                'Perhaps the currency is wrong.'
-                               .format(frequency))
+                               .format(key, currency))
 
     def fx(self, this_ccy, per_that_ccy):
         raise NotImplementedError('Foreign Exchange not yet implemented')
@@ -115,28 +135,8 @@ class RatesTermStructure(Market):
         array-like
             shape = ttm.shape + curve.node_dates.shape
         """
-        return self.map_curves[currency][curve_key].rate_sensitivity(ttm)
-
-
-    @property
-    def nodes_dataframe(self):
-        df = DataFrame(columns=['ttm', 'rates', 'ccy', 'curve'])
-        for ccy, curves in self.map_curves.items():
-            df_ccy = DataFrame(columns=['curve', 'ttm', 'rates'])
-            for key, crv in curves.items():
-                if not isinstance(crv, DiscountCurveWithNodes):
-                    raise ValueError('curve with ccy={}, id={}, is not a '
-                                     'DiscountCurveWithNodes'.format(ccy, key))
-                df_crv = crv.frame.loc[:, ['ttm', 'rates']]
-                df_crv['ccy'] = ccy
-                df_crv['curve'] = key
-                if key == 'discount':
-                    df_ccy = pd.concat([df_crv, df_ccy], ignore_index=True)
-                else:
-                    df_ccy = pd.concat([df_ccy, df_crv], ignore_index=True)
-            df = pd.concat([df, df_ccy], ignore_index=True)
-        df.sort(columns=['ccy','ttm'], inplace=True)
-        return df
+        crv, key = self.curve(currency, curve_key)
+        return crv.rate_sensitivity(ttm)
 
     @classmethod
     def of_single_curve(cls, dt_valuation, yield_curve):
