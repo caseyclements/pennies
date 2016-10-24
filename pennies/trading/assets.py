@@ -5,14 +5,13 @@ These are often referred to as Securities or Products in other libraries.
 
 from __future__ import absolute_import, division, print_function
 
-import numpy as np
 import pandas as pd
 from pandas import DataFrame
 from enum import Enum
 from numbers import Number
 
 from pandas.tseries.offsets import DateOffset, CustomBusinessDay
-from pennies.time import daycount
+from pennies.time import daycounter
 
 
 class RateType(Enum):
@@ -213,7 +212,10 @@ class Annuity(Asset):
         sched_end = pd.date_range(dt_settlement, dt_maturity,
                                   freq=period, closed='right') # TODO should build start and end in one schedule, and then index to get starts and ends
         sched_start = sched_end - period  # TODO Test stub cases. start[i] should be end[i-1]
-        sched_pay = sched_end + CustomBusinessDay(payment_lag, holidays=None)
+        if bday or payment_lag:
+            sched_pay = sched_end + CustomBusinessDay(payment_lag, holidays=None)
+        else:
+            sched_pay = sched_end
 
         # Primary representation of leg as Pandas DataFrame
         frame = pd.DataFrame({
@@ -229,7 +231,7 @@ class Annuity(Asset):
             'bday_adj': bday,
             'stub': stub,
             'type': rate_type})
-        year_frac = daycount(dcc)(frame.start, frame.end)
+        year_frac = daycounter(dcc)(frame.start, frame.end)
         frame['period'] = year_frac
 
         return Annuity(frame, notl_exchange=notl_exchange)
@@ -258,7 +260,7 @@ class FixedLeg(Annuity):
                 super(FixedLeg, self).__eq__(other))
 
     @classmethod
-    def from_tenor(cls, dt_settlement, tenor, frequency, rate=1.0, dcc='ACT365FIXED',
+    def from_tenor(cls, dt_settlement, tenor, frequency, rate=1.0, dcc='30360',
                    notional=1.0, currency='USD', receive=True, payment_lag=0,
                    bday=None, stub='front', notl_exchange=True):
         annuity = Annuity.from_tenor(dt_settlement, tenor, frequency, rate,
@@ -273,6 +275,7 @@ class FixedLeg(Annuity):
     @classmethod
     def from_frame(cls, df, fixed_rate=1.0, notl_exchange=True):
         return FixedLeg(df, fixed_rate=fixed_rate, notl_exchange=notl_exchange)
+
 
 class IborLeg(Annuity):
     """Series of coupons based on fixings of an IBOR.
@@ -308,8 +311,8 @@ class IborLeg(Annuity):
                                      rate_type=RateType.IBOR)
 
         df = annuity.frame
-        if fixing_lag:
-            df['fixing'] = df['start'] + CustomBusinessDay(fixing_lag)
+        if bday or fixing_lag:
+            df['fixing'] = df['start'] + CustomBusinessDay(fixing_lag, holidays=None)
         else:
             df['fixing'] = df['start']
         return IborLeg(df, notl_exchange=notl_exchange)

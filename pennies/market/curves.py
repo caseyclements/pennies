@@ -74,15 +74,15 @@ class ConstantDiscountRateCurve(DiscountCurve):
         according to providing time.day_count
     daycount_conv: str
         Returns fractional years between dates
-        according to providing time._map_daycounts
+        according to providing time.daycount_conventions
     """
     def __init__(self, dt_valuation,
                  zero_rate=0.0,
-                 daycount_conv='ACT365FIXED',
+                 daycount_conv='30360',
                  currency="USD"):
         super(ConstantDiscountRateCurve, self).__init__(dt_valuation)
         self.zero_rate = zero_rate
-        self.daycount_fn = time.daycount(daycount_conv)
+        self.daycount_fn = time.daycounter(daycount_conv)
         self.currency = currency
         """
         Parameters
@@ -93,7 +93,7 @@ class ConstantDiscountRateCurve(DiscountCurve):
             Continuously-compounded zero (discount) interest rate
         daycount_conv: str
             Returns fractional years between dates
-            according to providing time._map_daycounts
+            according to providing time.daycount_conventions
         """
 
     def __call__(self, dates):
@@ -147,7 +147,7 @@ class DiscountCurveWithNodes(DiscountCurve):
         Interpolation is performed in this space, instead of date space.
     """
     def __init__(self, dt_valuation, node_dates, node_rates,
-                 daycount_conv='ACT365FIXED',
+                 daycount_conv='30360',
                  interpolator=PiecewiseLinear, **interp_kwargs):
         """
         Parameters
@@ -159,7 +159,7 @@ class DiscountCurveWithNodes(DiscountCurve):
         node_rates: Series of
         daycount_conv: str
             Defines how dates are turned into times-to-maturities on curve.
-            String to key in time._map_daycounts
+            String to key in time.daycount_conventions
         interpolator: function, optional
             A function that takes t,y nodes and returns a function of t.
             Examples are those in scipy.interpolate.
@@ -170,7 +170,7 @@ class DiscountCurveWithNodes(DiscountCurve):
         super(DiscountCurveWithNodes, self).__init__(dt_valuation)
         self.node_dates = node_dates
         self.node_rates = node_rates
-        self.daycount_fn = time.daycount(daycount_conv)
+        self.daycount_fn = time.daycounter(daycount_conv)
         self.node_ttm = self.daycount_fn(dt_valuation, node_dates)
         self.frame = pd.DataFrame({
             'ttm': self.node_ttm,

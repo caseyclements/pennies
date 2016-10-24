@@ -136,7 +136,7 @@ if __name__ == '__main__':
     '''
 
     # 1. Define Valuation Date
-    from pennies.time import act365_fixed
+    from pennies import time
     from datetime import datetime
     from pennies.time import normalize_date  # This sets date to midnight
     dt_val = normalize_date(datetime.now())
@@ -151,6 +151,7 @@ if __name__ == '__main__':
     fixed_rates = 0.02 + np.log(1.0 + mkt_ids) / 50  # Effective market 'prices'
     frqncy = 6
     notional = 100
+    dcc = '30360'
 
     fixed_legs, float_legs, swaps = [], [], []
     for i in mkt_ids:
@@ -167,6 +168,7 @@ if __name__ == '__main__':
     # 3. Create Market. Specify number of curves to use, and the interpolators
     interpolator = PiecewiseLinear  # CubicSplineWithNodeSens, PiecewiseLinear
     n_curves = 1
+    accrual_fn = time.daycounter(dcc)
 
     node_dates = []
     for i in range(n_contracts):  # final pay date of each swap
@@ -175,7 +177,7 @@ if __name__ == '__main__':
     n = len(node_dates)
     rate_guess = 0.05
     node_rates = rate_guess / n * np.arange(1, n+1)
-    print('input ttm: {}'.format(act365_fixed(dt_val, node_dates).values))
+    print('input ttm: {}'.format(accrual_fn(dt_val, node_dates).values))
     print('input rates: {}'.format(node_rates))
 
     # 1 Curve for both discount and forward rates

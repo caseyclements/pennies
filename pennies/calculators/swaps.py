@@ -314,12 +314,12 @@ if __name__ == '__main__':
     rate_discount = 0.05
     crv_discount = ConstantDiscountRateCurve(
         dt_valuation=dt_val, zero_rate=rate_discount,
-        daycount_conv='ACT365FIXED', currency=curr)
+        daycount_conv='30360', currency=curr)
 
     spread = 0.002
     crv_ibor = ConstantDiscountRateCurve(  # Dummy IBOR Curve
         dt_valuation=dt_val, zero_rate=rate_discount + spread,
-        daycount_conv='ACT365FIXED', currency=curr)
+        daycount_conv='30360', currency=curr)
 
     curve_map = {fixed_leg.frame.currency.iloc[0]:
                      {'discount': crv_discount, frqncy: crv_ibor}}

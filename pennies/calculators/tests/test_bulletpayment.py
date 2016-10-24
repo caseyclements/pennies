@@ -23,7 +23,7 @@ trade = trades.Trade(contract=bullet)
 rate_discount = 0.05
 crv_discount = ConstantDiscountRateCurve(
     dt_valuation=dt_val, zero_rate=rate_discount,
-    daycount_conv='ACT365FIXED', currency=ccy)
+    daycount_conv='30360', currency=ccy)
 market = RatesTermStructure.of_single_curve(dt_val, crv_discount)
 expected_contract_pv = 4976605.8
 
