@@ -8,7 +8,7 @@ from pennies.trading import trades
 from pennies.market.curves import ConstantDiscountRateCurve
 from pennies.market.market import RatesTermStructure
 from pennies.calculators.payments import BulletPaymentCalculator
-from pennies.calculators.trades import TradeCalculator
+from pennies.calculators.trades import TradeCalculator, present_value
 from pennies.core import CurrencyAmount
 
 # TODO - Should this be a class of, or a number of individual, tests?
@@ -37,6 +37,13 @@ def test_contract_present_value():
         "calculated present value is not as expected."
 
 
+def test_dispatch_present_value():
+    pv_dispatch = present_value(bullet, market, ccy)
+    calculator = BulletPaymentCalculator(bullet, market)
+    pv_calc = calculator.present_value()
+    assert np.isclose(pv_dispatch, pv_calc.amount)
+
+
 def test_contract_present_value_with_rates_zero():
     interest = 0.00
     crv = ConstantDiscountRateCurve(dt_valuation=dt_val, zero_rate=interest)
@@ -48,6 +55,9 @@ def test_contract_present_value_with_rates_zero():
     assert np.allclose(pv_calc.amount, notional), \
         "calculated present value is not as expected."
 
+    pv_dispatch = present_value(bullet, market, ccy)
+    assert np.isclose(pv_dispatch, pv_calc.amount)
+
 
 def test_trade_present_value():
     calculator = TradeCalculator(trade, market)
@@ -56,6 +66,9 @@ def test_trade_present_value():
     assert pv_calc.currency == 'USD'
     assert np.allclose(pv_calc.amount, expected_contract_pv), \
         "calculated present value is not as expected."
+
+    pv_dispatch = present_value(trade, market, ccy)
+    assert np.isclose(pv_dispatch, pv_calc.amount)
 
 
 def test_trade_present_value_with_settlement_on_valuationdate():
@@ -67,3 +80,10 @@ def test_trade_present_value_with_settlement_on_valuationdate():
     assert pv_calc.currency == 'USD'
     assert np.allclose(pv_calc.amount, expected_contract_pv + notional), \
         "calculated present value is not as expected."
+
+    pv_dispatch = present_value(trade_w_settlement, market, ccy)
+    assert np.isclose(pv_dispatch, pv_calc.amount)
+
+if __name__ == '__main__':
+    #test_contract_present_value_with_rates_zero()
+    test_trade_present_value_with_settlement_on_valuationdate()

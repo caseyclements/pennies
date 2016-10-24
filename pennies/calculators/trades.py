@@ -15,7 +15,7 @@ def present_value(trade, market, reporting_ccy):
     """Present Value of Trade and RatesTermStructure"""
     pv = present_value(trade.contract, market, reporting_ccy)
     if trade.settlement is not None:
-        pv += present_value(trade.settlement, market)
+        pv += present_value(trade.settlement, market, reporting_ccy)
     return pv
 
 

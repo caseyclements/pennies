@@ -54,16 +54,16 @@ class RatesTermStructure(Market):
         for ccy, curves in self.map_curves.items():
             df_ccy = DataFrame(columns=['curve', 'ttm', 'dates', 'rates'])
             for key, crv in curves.items():
-                if not isinstance(crv, DiscountCurveWithNodes):
-                    raise ValueError('curve with ccy={}, id={}, is not a '
-                                     'DiscountCurveWithNodes'.format(ccy, key))
-                df_crv = crv.frame.loc[:, ['ttm', 'dates', 'rates']]
-                df_crv['ccy'] = ccy
-                df_crv['curve'] = key
-                if key == 'discount':
-                    df_ccy = pd.concat([df_crv, df_ccy], ignore_index=True)
-                else:
-                    df_ccy = pd.concat([df_ccy, df_crv], ignore_index=True)
+                try:
+                    df_crv = crv.frame.loc[:, ['ttm', 'dates', 'rates']]
+                    df_crv['ccy'] = ccy
+                    df_crv['curve'] = key
+                    if key == 'discount':
+                        df_ccy = pd.concat([df_crv, df_ccy], ignore_index=True)
+                    else:
+                        df_ccy = pd.concat([df_ccy, df_crv], ignore_index=True)
+                except AttributeError:
+                    pass  # Curves without nodes will not be calibrated
             self.nodes = pd.concat([self.nodes, df_ccy], ignore_index=True)
         self.nodes.sort_values(by=['ccy', 'ttm'], inplace=True)
 
