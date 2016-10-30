@@ -20,8 +20,9 @@ def present_value(contract, market, reporting_ccy):
 
     a = contract.frame
     discount_factors = market.discount_factor(a.pay, currency=contract.currency)
-    pv = (a.rate * a.period * discount_factors * a.notional)[a.pay >= market.dt_valuation].sum()
-    if contract.notl_exchange:
+    alive = a.pay >= market.dt_valuation
+    pv = (a.rate * a.period * discount_factors * a.notional).loc[alive].sum()
+    if contract.notl_exchange and alive.any():
         pv += a.notional.iloc[-1] * discount_factors.iloc[-1]
     if reporting_ccy != contract.currency:
         pv *= market.fx(reporting_ccy, contract.currency)
@@ -50,8 +51,9 @@ def present_value(contract, market, reporting_ccy):
     a.rate = a.rate.where(a.fixing < market.dt_valuation, forwards)
     # do not sum past cash flows
     discount_factors = market.discount_factor(a.pay, currency=contract.currency)
-    pv = (a.rate * a.period * discount_factors * a.notional)[a.pay >= market.dt_valuation].sum()
-    if contract.notl_exchange:
+    alive = a.pay >= market.dt_valuation
+    pv = (a.rate * a.period * discount_factors * a.notional).loc[alive].sum()
+    if contract.notl_exchange and alive.any():
         pv += a.notional.iloc[-1] * discount_factors.iloc[-1]
     if reporting_ccy != contract.currency:
         pv *= market.fx(reporting_ccy, contract.currency)
@@ -109,8 +111,9 @@ def sens_to_zero_price(contract, market, curve_key):
     """
     if curve_key == 'discount':
         df = contract.frame
-        sens = (df.rate * df.period)[df.pay >= market.dt_valuation]
-        if contract.notl_exchange:
+        alive = df.pay >= market.dt_valuation
+        sens = (df.rate * df.period).loc[alive]
+        if contract.notl_exchange and alive.any():
             sens.iloc[-1] += df.notional.iloc[-1]
     else:
         return 0
@@ -146,7 +149,7 @@ def sens_to_zero_rates(contract, market, curve_ccy, curve_key, reporting_ccy):
             ttm = crv.daycount_fn(market.dt_valuation, pay_dates)
             zcb = market.discount_factor(pay_dates, currency=contract.currency)
             sens = -ttm * zcb * (a.rate * a.period * a.notional).loc[alive]
-            if contract.notl_exchange:
+            if contract.notl_exchange and alive.any():
                 sens.iloc[-1] += a.notional.iloc[-1]
             if reporting_ccy != contract.currency:
                 sens *= market.fx(reporting_ccy, contract.currency)
@@ -178,13 +181,13 @@ def sens_to_zero_rates(contract, market, curve_ccy, rate_key, reporting_ccy):
             pay_dates = a.pay[unpaid]
             ttm_pay = crv.daycount_fn(market.dt_valuation, pay_dates)
             sens = -ttm_pay * (zcb_pay * a.notional * a.rate * a.period).loc[unpaid]
-            if contract.notl_exchange:
+            if contract.notl_exchange and unpaid.any():
                 sens.iloc[-1] += a.notional.iloc[-1]
             if reporting_ccy != contract.currency:
                 sens *= market.fx(reporting_ccy, contract.currency)
             df_sens = DataFrame({'ttm': ttm_pay, 'sens': sens,
                                  'ccy': curve_ccy, 'curve': 'discount'})
-        elif rate_key == contract.frequency:
+        elif rate_key == contract.frequency:  # TODO - Review and add comments
             crv, crv_key = market.curve(contract.currency, contract.frequency)
             unfixed = a.fixing >= market.dt_valuation
             pay_dates = a.pay.loc[unfixed]
@@ -228,6 +231,7 @@ def sens_to_market_rates(contract, market, reporting_ccy):
     ttm_k = df_pv_sens.ttm
 
     # 2. Sensitivity of CONTRACT RATES to MARKET RATES: dR_k / dR_j
+    # This is a function of the curve's interpolator
     drk_drj_disc = market.rate_sensitivity(ttm_k, ccy, 'discount')
 
     # 3. Sensitivity of the CONTRACT PV to MARKET RATES, dV / dR_j
@@ -236,7 +240,7 @@ def sens_to_market_rates(contract, market, reporting_ccy):
 
     mask_disc = ((market.nodes.ccy == contract.currency) &
                  (market.nodes.curve == 'discount')).values
-    dv_drj[mask_disc] = drk_drj_disc.T.dot(dv_drk)
+    dv_drj[mask_disc] = drk_drj_disc.T.dot(dv_drk)  # TODO NEED TO EXAMINE. Should this be: dv_drk.dot(drk_drj_disc) ?
 
     # 1d-array of sensitivities to each of the market's nodes. Lots of 0's
     return dv_drj
@@ -256,13 +260,14 @@ def sens_to_market_rates(contract, market, reporting_ccy):
     ttm_k_disc = df_pv_sens.ttm
 
     # 1b. ibor curve
-    ibor_key = contract.frequency  #  TODO - IBOR_KEY and contract,frequency should be different things!!!
+    ibor_key = contract.frequency  # TODO Rate and frequency should be separate
     df_pv_sens = sens_to_zero_rates(contract, market, ccy, ibor_key, reporting_ccy)
     ibor_key = df_pv_sens.curve.iat[0]  # May be 'discount', not frequency
     dv_drk_ibor = df_pv_sens.sens.values
     ttm_k_ibor = df_pv_sens.ttm
 
     # 2. Sensitivity of CONTRACT RATES to MARKET RATES: dR_k / dR_j
+    # This is a function of the curve's interpolator
     # Sensitivity to the discount curve
     drk_drj_disc = market.rate_sensitivity(ttm_k_disc, ccy, 'discount')
     # Sensitivity to the ibor curve
@@ -273,11 +278,11 @@ def sens_to_market_rates(contract, market, reporting_ccy):
     dv_drj = zeros(len(market.nodes))
     mask_disc = ((market.nodes.ccy == contract.currency) &
                  (market.nodes.curve == 'discount')).values
-    dv_drj[mask_disc] = dv_drj[mask_disc] + drk_drj_disc.T.dot(dv_drk_disc)
+    dv_drj[mask_disc] = dv_drj[mask_disc] + drk_drj_disc.T.dot(dv_drk_disc)  # TODO NEED TO EXAMINE
 
     mask_ibor = ((market.nodes.ccy == contract.currency) &
                  (market.nodes.curve == ibor_key)).values
-    dv_drj[mask_ibor] = dv_drj[mask_ibor] + drk_drj_ibor.T.dot(dv_drk_ibor)
+    dv_drj[mask_ibor] = dv_drj[mask_ibor] + drk_drj_ibor.T.dot(dv_drk_ibor)  # TODO NEED TO EXAMINE !!!!!!!!!!!!!!
 
     # 1d-array of sensitivities to each of the market's nodes.
     # May contain many 0's
@@ -292,7 +297,6 @@ def sens_to_market_rates(contract, market, reporting_ccy):
 
 
 if __name__ == '__main__':
-    # TODO Turn this into tests !!!
     import datetime as dt
     dt_val = dt.date.today()  # note: date
     dt_settle = dt_val - dt.timedelta(days=200)
@@ -347,5 +351,3 @@ if __name__ == '__main__':
     print('pv swap = {}'.format(present_value(swap, simple_rates_market, curr)))
     print('forward rates = {}'.format(forwards))
     print('swap rate = {}'.format(par_rate(swap, simple_rates_market)))
-
-    print('FIN')
