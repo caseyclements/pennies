@@ -250,10 +250,12 @@ class Annuity(Asset):
 
 class FixedLeg(Annuity):
 
-    def __init__(self, df, fixed_rate=1.0, notl_exchange=True):
+    def __init__(self, df, fixed_rate=None, notl_exchange=True):
         super(FixedLeg, self).__init__(df, notl_exchange=notl_exchange)
         self.type = RateType.FIXED
         self.frame['type'] = self.type
+        if fixed_rate:
+            self.frame['rate'] = fixed_rate
 
     def __eq__(self, other):
         return (isinstance(other, FixedLeg) and
@@ -337,6 +339,11 @@ class Swap(CompoundAsset):
         return (isinstance(other, Swap) and
                 self.leg_pay == other.leg_pay and
                 self.leg_receive == other.leg_receive)
+
+    def __str__(self):
+        return ('\nPay Leg:\n' + str(self.leg_pay) +
+                '\nReceive Leg:\n' + str(self.leg_receive))
+
 
 
 class VanillaSwap(Swap):
