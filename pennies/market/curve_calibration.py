@@ -8,7 +8,7 @@ from scipy.optimize import root
 
 from pennies.market.curves import DiscountCurveWithNodes
 from pennies.market.market import RatesTermStructure
-from pennies.market.interpolate import PiecewiseLinear
+from pennies.market.interpolate import PiecewiseLinear, CubicSplineWithNodeSens
 from pennies.calculators.trades import present_value
 from pennies.trading.assets import VanillaSwap, FixedLeg, IborLeg
 from pennies.trading.trades import Portfolio
@@ -73,7 +73,8 @@ def calibrate_rates(rates_mkt: RatesTermStructure,
         Guess for discount rates. Either a 1D numpy array or a scalar.
         If an array length must be equal to sum of all nodes in curves.
     root_kwargs: dictionary, optional
-        Keyword Args to be passed to scipy.optimize.root
+        Keyword Args to be passed to scipy.optimize.root. eg method, options
+
     Returns
     -------
     scipy.optimize.OptimizeResult
@@ -82,29 +83,29 @@ def calibrate_rates(rates_mkt: RatesTermStructure,
 
     def update_rates(rates, market):  # TODO Consider Moving this function to RatesTermStructure ==> market.update(rates)
         """Changes rates in current namespace's rates_mkt"""
-        market.nodes['rates'] = rates  # df exists to order rates
         nodes = market.nodes
+        nodes['rates'] = rates  # df exists to order rates
+        # TODO Worried about the index here, with the fact that we keep reconstructing curves, but not market..
+        # TODO - Is the order of nodes to ensure consistency while looping through a dict's items?
         for ccy, mkt in market.map_curves.items():
             for key, crv in mkt.items():
                 assert isinstance(crv, DiscountCurveWithNodes)
                 new_rates = nodes[(nodes.ccy == ccy) &
                                   (nodes.curve == key)]['rates'].values
-                mkt[key] = DiscountCurveWithNodes(
-                    crv.dt_valuation, crv.node_dates, new_rates, crv.daycount_fn,
-                    crv._interpolator.__class__, **crv._interp_kwargs)
+                #mkt[key] = DiscountCurveWithNodes(crv.dt_valuation, crv.node_dates, new_rates, crv.daycount_fn, crv._interpolator.__class__, **crv._interp_kwargs)
+                mkt[key].update_rates(new_rates)
                 if key == 'discount':
                     market.map_discount_curves[ccy] = mkt[key]
 
-    def vector_pv(rates, market):
+    def vector_pv(rates, market, portfolio):
         """Present Value of each asset in target portfolio
 
         Objective function for root finder.
         """
         update_rates(rates, market)
-        return [present_value(x, market, 'USD')
-                for x in target_portfolio.trades]
+        return [present_value(x, market, 'USD') for x in portfolio.trades]
 
-    def pv_jacobian(rates, market):
+    def pv_jacobian(rates, market, portfolio):
         """ Jacobian of sensitivities of each of the PV's to market moves
 
         For each asset in the target_portfolio, we compute the sensitivity
@@ -113,14 +114,16 @@ def calibrate_rates(rates_mkt: RatesTermStructure,
 
         update_rates(rates, market)
         sens = [sens_to_market_rates(contract, market, 'USD')
-                for contract in target_portfolio.trades]
+                for contract in portfolio.trades]
         return np.array(sens).T
 
     if rates_guess is None:
         rates_guess = np.full(len(target_portfolio.trades), 0.02)
 
-    return root(vector_pv, rates_guess, jac=pv_jacobian, args=rates_mkt,
+    return root(vector_pv, rates_guess, jac=pv_jacobian,
+                args=(rates_mkt, target_portfolio),
                 **root_kwargs)
+
 
 if __name__ == '__main__':
     '''
@@ -136,9 +139,8 @@ if __name__ == '__main__':
     '''
 
     # 1. Define Valuation Date
-    from pennies import time
     from datetime import datetime
-    from pennies.time import normalize_date  # This sets date to midnight
+    from pennies.time import normalize_date, daycounter
     dt_val = normalize_date(datetime.now())
 
     # 2. Define the Market Prices to Calibrate to.
@@ -166,9 +168,9 @@ if __name__ == '__main__':
     market_portfolio = Portfolio.of_trades(swaps)
 
     # 3. Create Market. Specify number of curves to use, and the interpolators
-    interpolator = PiecewiseLinear  # CubicSplineWithNodeSens, PiecewiseLinear
-    n_curves = 1
-    accrual_fn = time.daycounter(dcc)
+    interpolator = CubicSplineWithNodeSens  # CubicSplineWithNodeSens, PiecewiseLinear
+    n_curves = 2
+    accrual_fn = daycounter(dcc)
 
     node_dates = []
     for i in range(n_contracts):  # final pay date of each swap
@@ -178,7 +180,8 @@ if __name__ == '__main__':
     rate_guess = 0.05
     node_rates = rate_guess / n * np.arange(1, n+1)
     print('input ttm: {}'.format(accrual_fn(dt_val, node_dates).values))
-    print('input rates: {}'.format(node_rates))
+    print('market rates: {}'.format(fixed_rates))
+    print('rate guess: {}'.format(node_rates))
 
     # 1 Curve for both discount and forward rates
     if n_curves == 1:
@@ -203,13 +206,6 @@ if __name__ == '__main__':
         curve_map = {curr: {'discount': crv_disc, frqncy: crv_ibor}}
         rates_market = RatesTermStructure.from_curve_map(dt_val, curve_map)
 
-        print('disc ttm: {}'.format(crv_disc.node_ttm))
-        print('ibor ttm: {}'.format(crv_ibor.node_ttm))
-        # single date returns scalar. Also checking extrapolation
-        print('rate at dt_val: {}'.format(crv_disc(dt_val)))
-        # series returns a series
-        print('rate at dt_val: {}'.format(crv_disc(node_dates)))
-
     # --------- Test Calibration Pieces -----------------
     rep_ccy = "USD"
     sens_float = sens_to_market_rates(float_legs[i],
@@ -230,16 +226,19 @@ if __name__ == '__main__':
     assert(np.allclose(sens_swap, sens_fixed + sens_float))
 
     # --------- Test Calibration -------------------------
-
+    from time import time
+    t = time()
     # Show the price of the target portfolio given the initial rate guess of 5%
     print('pv of portfolio before calibration: {}'.format(
         present_value(market_portfolio, rates_market, rep_ccy)))
-    print('pv of each trade: {}'.format(
+    print('pv of each trade BEFORE: {}'.format(
         [present_value(trade, rates_market, rep_ccy)
          for trade in market_portfolio.trades]))
 
     # Calibrate market model to prices
-    result = calibrate_rates(rates_market, market_portfolio)
+    method = 'hybr'  # hybr, lm, broyden1, anderson
+    options = None
+    result = calibrate_rates(rates_market, market_portfolio, method=method, options=options)
 
     print(result)
     print('discount rates: {}'.format(
@@ -250,3 +249,8 @@ if __name__ == '__main__':
     # Test that it's worked by pricing swaps
     print('pv of portfolio after calibration: {}'.format(
         present_value(market_portfolio, rates_market, rep_ccy)))
+    print('pv of each trade AFTER: {}'.format(
+        [present_value(trade, rates_market, rep_ccy)
+         for trade in market_portfolio.trades]))
+
+    print('time to run calibration, {}, contracts, {}, method, {}'.format(time() - t, n_contracts, method))

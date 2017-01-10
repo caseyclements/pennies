@@ -174,13 +174,28 @@ class DiscountCurveWithNodes(DiscountCurve):
         self.node_ttm = self.daycount_fn(dt_valuation, node_dates)
         self.frame = pd.DataFrame({
             'ttm': self.node_ttm,
-            'dt': node_dates,
             'rates': node_rates,
             'dates': node_dates})
 
         self._interpolator = interpolator(np.array(self.node_ttm), node_rates,
                                           **interp_kwargs)
         self._interp_kwargs = interp_kwargs
+
+    @classmethod
+    def from_frame(cls, frame, dt_valuation, daycount_conv='30360',
+                   interpolator=PiecewiseLinear, **interp_kwargs):
+        node_dates = frame['dates']
+        node_rates = frame['rates']
+        return DiscountCurveWithNodes(dt_valuation, node_dates, node_rates,
+          daycount_conv=daycount_conv, interpolator=interpolator, **interp_kwargs)
+
+    def update_rates(self, rates):
+        """Update rates, rebuild interpolator"""
+        self.node_rates = rates
+        self.frame.rates = rates
+        self._interpolator.__init__(np.array(self.node_ttm), rates,
+                                    **self._interp_kwargs)
+
 
     def rates_given_dates(self, dates):
         """Interpolated rates, r(ttm) = -log(ZeroCouponBond(ttm)) / ttm"""
@@ -202,6 +217,9 @@ class DiscountCurveWithNodes(DiscountCurve):
         r(ttm) = -log(ZeroCouponBond(ttm)) / ttm
         """
         return self.rates_given_dates(dates)
+
+    def __str__(self):
+            return str(self.frame)
 
     def rate_sensitivity(self, ttm):
         """Sensitivity of interpolated point to node: dy(x)/dy_i

@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 import pandas as pd
+import numpy as np
 from pandas import DataFrame
 from pennies.market.curves import Curve, DiscountCurveWithNodes
 
@@ -65,7 +66,21 @@ class RatesTermStructure(Market):
                 except AttributeError:
                     pass  # Curves without nodes will not be calibrated
             self.nodes = pd.concat([self.nodes, df_ccy], ignore_index=True)
-        self.nodes.sort_values(by=['ccy', 'ttm'], inplace=True)
+        #self.nodes.sort_values(by=['ccy', 'ttm'], inplace=True)
+        # TODO - What's the point of if key == blah, if we sort? Why are we sorting?
+
+    @classmethod
+    def from_frame(cls, dt_valuation, frame, map_fx=None):
+        map_curves = {}
+        for ccy in np.unique(frame.ccy):
+            mp_ccy = {}
+            df_ccy = frame[frame.ccy == ccy]
+            for key in np.unique(df_ccy.curve):
+                mp_ccy[key] = DiscountCurveWithNodes.from_frame(
+                    df_ccy[df_ccy.curve == key]['dates', 'rates'],
+                    dt_valuation)
+            map_curves[ccy] = mp_ccy
+        return RatesTermStructure(dt_valuation, map_curves, map_fx)
 
     def discount_curve(self, currency):
         """Access to discount curve for given currency"""
@@ -161,3 +176,6 @@ class RatesTermStructure(Market):
         from pseudo-discount factors.
         """
         return cls(dt_valuation, curve_map)
+
+    def __str__(self):
+        return str(self.nodes)

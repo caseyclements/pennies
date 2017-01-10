@@ -6,7 +6,7 @@ import pandas as pd
 from pandas.tseries.offsets import DateOffset
 import pytest
 
-from pennies.trading.assets import Asset, FixedLeg, IborLeg, VanillaSwap
+from pennies.trading.assets import Asset, FixedLeg, IborLeg, Swap, VanillaSwap
 from pennies.market.curves import ConstantDiscountRateCurve, DiscountCurveWithNodes
 from pennies.market.interpolate import PiecewiseLinear
 from pennies.market.market import Market, RatesTermStructure
@@ -21,7 +21,7 @@ notional = 100
 curr = "USD"
 payment_lag = 2  # days
 
-# 1. Create a Swap
+# 1. Create a Vanilla Swap
 fixed_leg = FixedLeg.from_tenor(dt_settlement=dt_settle, tenor=length,
                                 frequency=frqncy, rate=fixed_rate,
                                 notional=notional)
@@ -132,7 +132,7 @@ def test_present_value_vanilla_ibor_leg_at_fixing_date_equals_notional():
     assert np.isclose(present_value(spot_starting,nodal_rates_market, curr),
                       -notional)
 
-def present_value_of_swap_after_expiry():
+def test_present_value_of_swap_after_expiry():
     dt_settle = dt_val - dt.timedelta(days=1000)
     fixed_leg = FixedLeg.from_tenor(dt_settlement=dt_settle, tenor=length,
                                     frequency=frqncy, rate=fixed_rate,
@@ -148,6 +148,33 @@ def present_value_of_swap_after_expiry():
     assert np.isclose(pv_flt, 0.0)
 
 
+def test_basisswap_pv_zero_if_onecurve_termstructure():
+    notl = 1e8
+    dt_start = dt_val
+    leg6m = IborLeg.from_tenor(dt_start, length, frequency=6, notional=notl)
+    leg3m = IborLeg.from_tenor(dt_start, length, frequency=3, notional=-notl)
+    basis_swap = Swap(leg3m, leg6m)
+    mkt_1crv = RatesTermStructure(dt_val, {curr: {'discount': crv_disc}})
+
+    pv_6m_1crv = present_value(leg6m, mkt_1crv, curr)
+    pv_3m_1crv = present_value(leg3m, mkt_1crv, curr)
+    pv_1crv = present_value(basis_swap, mkt_1crv, curr)
+    assert np.isclose(pv_6m_1crv, notl)
+    assert np.isclose(pv_3m_1crv, -notl)
+    assert np.isclose(pv_1crv, 0.0)
+
+    spread = 0.005  # 5 basis point spread
+    crv_6m = DiscountCurveWithNodes(dt_val, node_dates, node_rates + spread,
+                                      interpolator=interpolator,
+                                      extrapolate=('clamped', 'natural'))
+    mkt_2crv = RatesTermStructure(dt_val, {curr: {'discount': crv_disc,
+                                                  6: crv_6m}})
+    pv_2crv = present_value(basis_swap, mkt_2crv, curr)
+    assert not np.isclose(pv_2crv, 0.0)
+
+
 if __name__ == '__main__':
-    test_present_value_swap_equals_sum_of_legs()
-    #present_value_of_swap_after_expiry()
+    #test_present_value_swap_equals_sum_of_legs()
+    #test_present_value_of_swap_after_expiry()
+    #test_present_value_vanilla_ibor_leg_at_fixing_date_equals_notional()
+    test_basisswap_pv_zero_if_onecurve_termstructure()
