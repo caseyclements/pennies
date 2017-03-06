@@ -1,65 +1,65 @@
+"""Tests calibration for single and multi curve setups.
+Tests implicitly the price jacobian for Cubic Spline Interpolation."""
+
+from pennies.time import normalize_date, daycounter
+from pennies.market.curves import DiscountCurveWithNodes
+from pennies.market.market import RatesTermStructure
+from pennies.market.interpolate import PiecewiseLinear, CubicSplineWithNodeSens
+from pennies.calculators.trades import present_value
+from pennies.trading.trades import Portfolio
+from pennies.market.curve_calibration import calibrate_rates, strip_of_swaps
+
 import numpy as np
 import pandas as pd
 import pytest
-from copy import deepcopy
-
-
 from datetime import datetime
-from pennies.time import normalize_date, daycounter
+from pandas.tseries.offsets import DateOffset
 
-from pennies.market.curves import DiscountCurveWithNodes
-from pennies.market.market import RatesTermStructure
-from pennies.market.interpolate import PiecewiseLinear
-from pennies.calculators.trades import present_value
-from pennies.calculators.swaps import par_rate
-from pennies.trading.assets import VanillaSwap, FixedLeg, IborLeg
-from pennies.trading.trades import Portfolio
-from pennies.market.curve_calibration import calibrate_rates
 
-# GENERIC SETUP  # TODO Turn this into a pytest fixture
-
+# GENERIC SETUP
+# TODO Expand coverage by turning these into fixtures
 # 1. Define the Market Prices to Calibrate to.
-# In our example, we create n_contracts Swaps, with an upward sloping yield
+# In our example, we create n Swaps, (or 2n) with upward sloping yield
 dt_val = normalize_date(datetime.now())  # Valuation Date
-dt_settle = dt_val  # Spot starting without typical n business day lag
+dt_settle = dt_val  # Spot starting without typical spot starting lag
 ccy = "USD"
-n_contracts = 4
-mkt_ids = np.arange(n_contracts)
-durations = 12 * (1 + mkt_ids)
-fixed_rates = 0.02 + np.log(1.0 + mkt_ids) / 50  # Effective market 'prices'
-frqncy = 12
+n_nodes = 10    
+idx = np.arange(n_nodes)
+maturities = 12 * (1 + idx)  # annual, in months
 notional = 100
 dcc = '30360'
 
-fixed_legs, float_legs, swaps = [], [], []
-for i in mkt_ids:
-    fixed_legs.append(
-        FixedLeg.from_tenor(dt_settle, durations[i], frqncy, fixed_rates[i],
-                            notional=notional, currency=ccy))
-    float_legs.append(
-        IborLeg.from_tenor(dt_settle, durations[i], frqncy,
-                           notional=-1 * notional, currency=ccy))
-    swaps.append(VanillaSwap(fixed_legs[i], float_legs[i]))
+# The fixed rate acts as the effective market 'price'
+freq3 = 3  # Quarterly
+fixed_rates_quarterly = 0.02 + np.log(1.0 + idx) / 50  # Pays ibor quarterly
+freq12 = 12  # Annually
+spread_3s12s = 0.002  # 200bp more expensive to fund at 12M than 3M
+fixed_rates_annual = fixed_rates_quarterly + spread_3s12s  # Pays ibor annually
 
-market_portfolio = Portfolio.of_trades(swaps)
-
-# 2. Create Market Model. Specify number of curves to use, and the interpolators
-interpolator = PiecewiseLinear  # CubicSplineWithNodeSens, PiecewiseLinear
-n_curves = 1
+# 2. Create Model for the Term Structure.
+# Specify number of curves to use, and the interpolators
 accrual_fn = daycounter(dcc)
-
-node_dates = []
-for i in range(n_contracts):  # final pay date of each swap
-    node_dates.append(fixed_legs[i].frame.pay.iloc[-1])
-node_dates = pd.Series(node_dates)
-n = len(node_dates)
-rates_guess = 0.05
-rates_guess = rates_guess / n * np.arange(1, n + 1)
+node_dates = [dt_val + DateOffset(months=maturities[i]) for i in range(n_nodes)]
+rates_guess = 0.05 / n_nodes * np.arange(1, n_nodes + 1)
 
 
-def test_one_curve():
+@pytest.fixture(params=[PiecewiseLinear, CubicSplineWithNodeSens])
+def interpolator(request):
+    return request.param
+
+
+@pytest.fixture(params=[3, 12])
+def frequency(request):
+    return request.param
+
+
+def test_one_curve(frequency, interpolator):
     """1 Nodal Curve: 1 discount, used to produce discount and forward rates"""
-    # Create market
+    # Create the swap strip (target prices)
+    market_portfolio = Portfolio.of_trades(
+        strip_of_swaps(dt_settle, ccy, frequency, maturities, fixed_rates_annual))
+
+    # Create market model / term structure
     crv_disc = DiscountCurveWithNodes(dt_val, node_dates,
                                       rates_guess,
                                       interpolator=interpolator,
@@ -74,116 +74,48 @@ def test_one_curve():
 
     # Test that it's worked by pricing swaps
     pv_portfolio = present_value(market_portfolio, rates_market, ccy)
-    assert np.isclose(pv_portfolio, 0.0), 'PV after calibration is non-zero, {}'.format(pv_portfolio)
-    pv_trades = [present_value(trade, rates_market, ccy) for trade in market_portfolio.trades]
+    assert np.isclose(pv_portfolio, 0.0), ('Non-Zero PV after calibration is {}'
+                                           .format(pv_portfolio))
+    pv_trades = [present_value(trade, rates_market, ccy)
+                 for trade in market_portfolio.trades]
     assert np.allclose(pv_trades, 0.0), "PVs after calibration are non-zero"
 
 
-def test_two_curve_starting_from_solution():
-    """Confirm calibration stops immediately when rate guess is the solution
+def test_two_curve(interpolator):
+    """Calibrate Term Structure to strips of swaps of 2 frequencies
 
-    2 Nodal Curves: 1 discount, 1 ibor
-
-    Set discount rates of two curves
-    Create market from two-curves of arbitrary discount rates
-    Compute par rates of market (target) swaps, given known curves.
-    Set target market prices equal to the par rates calculated
-    Calibrate market to the market prices starting from set discount rates.
-    This should already be at solution.
+    The primary curve is used to produce forward rates for 1st frequency
+    AND discount rates. This is typically chosen to be the smaller frequency.
+    The secondary curve is used to produce forward rates for the 2nd frequency.
     """
 
-    # Set arbitrary curve rates
-    rates_discount = rates_guess[::2]
-    rates_ibor = rates_guess[1::2]
-    dts_discount = node_dates[::2]
-    dts_ibor = node_dates[1::2]
+    # Targets are 2 strips, Swaps paying quarterly, and ones paying annually
+    market_portfolio_3s12s = Portfolio.of_trades(
+        strip_of_swaps(dt_settle, ccy, freq3, maturities, fixed_rates_quarterly) +
+        strip_of_swaps(dt_settle, ccy, freq12, maturities, fixed_rates_annual))
 
-    # Create TermStructure
-    crv_disc = DiscountCurveWithNodes(dt_val, dts_discount, rates_discount,
-                                      interpolator=PiecewiseLinear,
-                                      extrapolate=('clamped', 'clamped'))
+    # Create TermStructure model
+    crv1 = DiscountCurveWithNodes(dt_val, node_dates, rates_guess,
+                                  interpolator=interpolator,
+                                  extrapolate=('clamped', 'clamped'))
 
-    crv_ibor = DiscountCurveWithNodes(dt_val, dts_ibor, rates_ibor,
-                                      interpolator=PiecewiseLinear,
-                                      extrapolate=('clamped', 'natural'))
+    crv2 = DiscountCurveWithNodes(dt_val, node_dates, rates_guess,
+                                  interpolator=interpolator,
+                                  extrapolate=('clamped', 'natural'))
 
-    curve_map = {ccy: {'discount': crv_disc, frqncy: crv_ibor}}
-    rates_market = RatesTermStructure.from_curve_map(dt_val, curve_map)
+    curve_map = {ccy: {'discount': crv1, freq12: crv2}}
 
-    # Create Market 'at Par' with TermStructure
-    swaps = []
-    for trade in market_portfolio.trades:
-        assert isinstance(trade, VanillaSwap)
-        swap_rate = par_rate(trade, rates_market)
-        fixed_leg = FixedLeg.from_frame(trade.leg_fixed.frame, fixed_rate=swap_rate)
-        swaps.append(VanillaSwap(fixed_leg, trade.leg_float))
-    target_portfolio = Portfolio.of_trades(swaps)
-
-    # Calibrate TermStructure to market
-    new_curves = deepcopy(rates_market)
-    result = calibrate_rates(new_curves, target_portfolio)
-    assert result.success
-
-    # Test that it's worked by pricing swaps
-    pv_portfolio = present_value(market_portfolio, new_curves, ccy)
-    assert np.allclose(pv_portfolio, 0.0), \
-        'PV of market portfolio after calibration is non-zero'
-    pv_trades = ([present_value(trade, new_curves, ccy)
-                  for trade in market_portfolio.trades])
-    assert np.allclose(pv_trades, 0.0), \
-        "PVs of market portfolio's trades after calibration are non-zero"
-
-
-def test_two_curve():
-    """2 Nodal Curves: 1 discount, 1 ibor"""
-
-    # Create market
-    crv_disc = DiscountCurveWithNodes(dt_val, node_dates[::2],
-                                      rates_guess[::2],
-                                      interpolator=PiecewiseLinear,
-                                      extrapolate=('clamped', 'clamped'))
-
-    crv_ibor = DiscountCurveWithNodes(dt_val, node_dates[1::2],
-                                      rates_guess[1::2],
-                                      interpolator=PiecewiseLinear,
-                                      extrapolate=('clamped', 'natural'))
-
-    curve_map = {ccy: {'discount': crv_disc, frqncy: crv_ibor}}
     rates_market = RatesTermStructure.from_curve_map(dt_val, curve_map)
 
     # Calibrate market model to prices
-    result = calibrate_rates(rates_market, market_portfolio)
+    result = calibrate_rates(rates_market, market_portfolio_3s12s)
     assert result.success
-    print(result)
 
     # Test that it's worked by pricing swaps
-    pv_portfolio = present_value(market_portfolio, rates_market, ccy)
-    assert np.isclose(pv_portfolio, 0.0), 'PV of market portfolio after calibration are non-zero'
-    pv_trades = [present_value(trade, rates_market, ccy) for trade in market_portfolio.trades]
-    assert np.allclose(pv_trades, 0.0), "PVs of market portfolio's trades after calibration are non-zero"
-
-
-@pytest.mark.skip("Not implemented yet")
-def test_one_curve_annuities_only():
-    """Test calibration to spot starting Annuities
-
-    These annuities pay notional at settlement, and receive it at maturity.
-    """
-    assert False
-
-@pytest.mark.skip("Not implemented yet")
-def test_two_curve_annuities_only():
-    """Test calibration to spot starting Annuities
-
-    These annuities pay notional at settlement, and receive it at maturity.
-    """
-    assert False
-
-
-if __name__ == '__main__':
-    #test_one_curve()
-    #test_two_curve_starting_from_solution()
-    test_two_curve()
-
-
-
+    pv_portfolio = present_value(market_portfolio_3s12s, rates_market, ccy)
+    assert np.isclose(pv_portfolio, 0.0), ('PV of market portfolio after '
+                                           'calibration is non-zero')
+    pv_trades = [present_value(trade, rates_market, ccy)
+                 for trade in market_portfolio_3s12s.trades]
+    assert np.allclose(pv_trades, 0.0), ("PVs of market portfolio's trades "
+                                         "after calibration are non-zero")

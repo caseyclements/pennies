@@ -15,6 +15,26 @@ from pennies.trading.trades import Portfolio
 from pennies.calculators.swaps import sens_to_market_rates
 
 
+def strip_of_swaps(dt_settlement, currency, tenor, maturities, rates):
+    """Strip / List of Swaps of increasing length and a single currency and tenor
+
+    These strips are used to calibrate nodes in discount and forward curves.
+    If we are interested in pricing derivatives that depends on rates of two
+    different frequencies (eg 3M & 12M), we will need one strip per frequency.
+    Curve
+
+    TODO Business date treatment
+    TODO Add proper conventions
+    """
+    idx = np.arange(len(maturities))
+    fixed_legs = [FixedLeg.from_tenor(dt_settlement, maturities[i], tenor,
+                                      rates[i], currency=currency) for i in idx]
+    float_legs = [IborLeg.from_tenor(dt_settlement, maturities[i], tenor,
+                                     notional=-1.,currency=currency) for i in idx]
+    swaps = [VanillaSwap(fixed_legs[i], float_legs[i]) for i in idx]
+    return swaps
+
+
 def calibrate_rates(rates_mkt: RatesTermStructure,
                     target_portfolio: Portfolio,
                     rates_guess=None,
