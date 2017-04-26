@@ -23,11 +23,12 @@ install:
   - conda install numpy=$NUMPY pandas scipy multipledispatch matplotlib pytest pytest-cov 
 
   # Install package
-  # (from dask) - pip install --no-deps -e .[complete]
+  # from dask
+  - pip install --no-deps -e .
   # taken from danielfrg/word2vec
-  - python setup.py bdist_wheel
-  - ls dist
-  - pip install --pre --no-index --find-links dist/ pennies
+  ##- python setup.py bdist_wheel
+  ##- ls dist
+  ##- pip install --pre --no-index --find-links dist/ pennies
 
 script:
   - if [[ $COVERAGE == 'true' ]]; then py.test --cov --cov-report=html -vv -s --pyarg --doctest-modules pennies; fi
