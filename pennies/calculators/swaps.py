@@ -6,7 +6,7 @@ from numpy import zeros
 from pennies.trading.assets import Swap, Annuity, IborLeg, FixedLeg, VanillaSwap, RateType
 from pennies.market.market import RatesTermStructure
 from pennies.market.curves import ConstantDiscountRateCurve
-from pennies.dispatch import dispatch
+from pennies import dispatch
 
 
 @dispatch(Annuity, RatesTermStructure, str)
@@ -21,8 +21,10 @@ def present_value(contract, market, reporting_ccy):
     a = contract.frame
     discount_factors = market.discount_factor(a.pay, currency=contract.currency)
     alive = a.pay >= market.dt_valuation
+    if not alive.any():
+        return 0.0
     pv = (a.rate * a.period * discount_factors * a.notional).loc[alive].sum()
-    if contract.notl_exchange and alive.any():
+    if contract.notl_exchange:
         pv += a.notional.iloc[-1] * discount_factors.iloc[-1]
     if reporting_ccy != contract.currency:
         pv *= market.fx(reporting_ccy, contract.currency)
@@ -52,8 +54,10 @@ def present_value(contract, market, reporting_ccy):
     # do not sum past cash flows
     discount_factors = market.discount_factor(a.pay, currency=contract.currency)
     alive = a.pay >= market.dt_valuation
+    if not alive.any():
+        return 0.0
     pv = (a.rate * a.period * discount_factors * a.notional).loc[alive].sum()
-    if contract.notl_exchange and alive.any():
+    if contract.notl_exchange:
         pv += a.notional.iloc[-1] * discount_factors.iloc[-1]
     if reporting_ccy != contract.currency:
         pv *= market.fx(reporting_ccy, contract.currency)
@@ -297,9 +301,9 @@ def sens_to_market_rates(contract, market, reporting_ccy):
 
 
 if __name__ == '__main__':
-    import datetime as dt
-    dt_val = dt.date.today()  # note: date
-    dt_settle = dt_val - dt.timedelta(days=200)
+    import pandas as pd
+    dt_val = pd.to_datetime('today')
+    dt_settle = dt_val - pd.Timedelta(days=200)
     length = 24
     frqncy = 6
     fixed_rate = 0.03
