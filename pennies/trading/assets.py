@@ -347,7 +347,9 @@ class Swap(CompoundAsset):
 
 
 class VanillaSwap(Swap):
-    def __init__(self, fixed_leg: FixedLeg, floating_leg: IborLeg):
+    def __init__(self, fixed_leg, floating_leg):
+        assert isinstance(fixed_leg, FixedLeg)
+        assert isinstance(floating_leg, IborLeg)
         assert fixed_leg.currency == floating_leg.currency, \
             'Currencies differ in legs of VanillaSwap'
         assert fixed_leg.type == RateType.FIXED
