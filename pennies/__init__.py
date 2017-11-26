@@ -1,7 +1,5 @@
-# from . import models
+from multipledispatch import dispatch
+from functools import partial
 
-__version__ = '0.1.0'
-
-from pennies.calculators.bonds import *
-from pennies.calculators.core import *
-from pennies.calculators.core import present_value
+NAMESPACE = dict()
+dispatch = partial(dispatch, namespace=NAMESPACE)  # TODO Why is namespace here?

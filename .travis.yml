@@ -1,20 +1,17 @@
 language: python
 
-python:
-  - "2.7"
-  - "3.4"
-  - "3.5"
+env:
+  matrix:
+    - PYTHON=2.7 NUMPY=1.10 COVERAGE='false'
+    - PYTHON=2.7 NUMPY=1.11 COVERAGE='false'
+    - PYTHON=3.4 NUMPY=1.11 COVERAGE='false'
+    - PYTHON=3.5 NUMPY=1.11 COVERAGE='false'
+    - PYTHON=3.6 NUMPY=1.13 COVERAGE='true'
 
 install:
   # Install conda
   - sudo apt-get update
-  # We do this conditionally because it saves us some downloading if the
-  # version is the same.
-  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-      wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh;
-    else
-      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
-    fi
+  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
   - conda config --set always_yes yes --set changeps1 no
@@ -22,19 +19,20 @@ install:
   - conda info -a
 
   # Install dependencies
-  - conda create -n test-environment python=$TRAVIS_PYTHON_VERSION
+  - conda create -n test-environment python=$PYTHON
   - source activate test-environment
-  - conda install --file requirements.txt
+  - conda install numpy=$NUMPY pandas scipy multipledispatch matplotlib pytest pytest-cov enum34
 
-  # Install package
-  # (from dask) - pip install --no-deps -e .[complete]
-  # taken from danielfrg/word2vec
-  - python setup.py bdist_wheel
-  - ls dist
-  - pip install --pre --no-index --find-links dist/ pennies
+  # Install package in develop mode
+  - python setup.py develop
+  #- pip install --no-deps -e .
 
 script:
-  - py.test --cov --cov-report=html -vv -s --pyarg --doctest-modules pennies
+  - if [[ $COVERAGE == 'true' ]]; then 
+        py.test --cov --cov-report=html -vv -s tests; 
+    else
+        py.test -vv -s tests; 
+    fi
 
 after_success:
   - coverage report --show-missing

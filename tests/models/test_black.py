@@ -1,7 +1,7 @@
 from __future__ import division, print_function
 
-from ..black import price, delta, vega, theta_forward, theta_spot
-from ..black import strike_from_delta, implied_vol, _d1, _d1_using_mask
+from pennies.models.black import price, delta, vega, theta_forward, theta_spot
+from pennies.models.black import strike_from_delta, implied_vol, _d1, _d1_using_mask
 import numpy as np
 import pytest
 
@@ -64,7 +64,6 @@ def test_price():
             'Call with 0 variance remaining is not matching payoff')
         
         # 8. forward < 0
-        print('negative forward prices = {}'.format(prices[0,:]))
         assert np.all(np.isnan(prices[0,:])), (
             'negative forwards are producing non-nan prices')
     

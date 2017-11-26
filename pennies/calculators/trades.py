@@ -1,20 +1,32 @@
 from __future__ import absolute_import, division, print_function
 
+from pennies.trading.trades import Trade, Portfolio
+from pennies.market.market import RatesTermStructure
+from pennies import dispatch
+# TODO Refactor to remove the Calculator
 from pennies.calculators.payments import BulletPaymentCalculator
-import pennies.calculators.payments as payments
-from pennies.trading import assets
+from pennies.calculators.assets import default_calculators
+from pennies.calculators.swaps import present_value
 
 
-# TODO: Rethink default_calculators as we examine dispatch
-def default_calculators():
-    return {
-        str(assets.BulletPayment): payments.BulletPaymentCalculator,
-        str(assets.DiscountBond): payments.BulletPaymentCalculator,
-        str(assets.SettlementPayment): payments.BulletPaymentCalculator,
-        str(assets.Zero): payments.BulletPaymentCalculator,
-        str(assets.ZeroCouponBond): payments.BulletPaymentCalculator,
-        str(assets.CompoundAsset): None
-    }
+@dispatch(Trade, RatesTermStructure, str)
+def present_value(trade, market, reporting_ccy):
+    """Present Value of Trade and RatesTermStructure"""
+    pv = present_value(trade.contract, market, reporting_ccy)
+    if trade.settlement is not None:
+        pv += present_value(trade.settlement, market, reporting_ccy)
+    return pv
+
+
+@dispatch(Portfolio, RatesTermStructure, str)
+def present_value(portfolio, market, reporting_ccy):
+    """Present Value of Trade and RatesTermStructure"""
+    pv = 0.0
+    for t in portfolio.trades:
+        pv += present_value(t, market, reporting_ccy)
+    for p in portfolio.subportfolios:
+        pv += present_value(p, market, reporting_ccy)
+    return pv
 
 
 class TradeCalculator(object):
@@ -31,9 +43,10 @@ class TradeCalculator(object):
             self.settlement_ccr = BulletPaymentCalculator(trade.settlement,
                                                           market)
 
-    # TODO - Is there a way that I can get the calculators available for trade?
+    # TODO - Is there a way to get all calculators available for trade?
     def present_value(self):
         pv = self.asset_ccr.present_value()
         if self.settlement_ccr is not None:
             pv += self.settlement_ccr.present_value()
         return pv
+

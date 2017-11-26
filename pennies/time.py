@@ -1,40 +1,63 @@
+"""Daycount calculations, Schedule creation, and so on.
+
+Only a small number of required daycount conventions are included here.
+For full list, see the following:
+https://developers.opengamma.com/quantitative-research/Interest-Rate-Instruments-and-Market-Conventions.pdf
+"""
 from __future__ import absolute_import, division, print_function
 
-import datetime as dt
+import numpy as np
 import pandas as pd
+from pandas import Series
+from datetime import date
 
 
-def calendar_date(date_time):
-    if isinstance(date_time, dt.datetime):
-        return date_time.date()
-    elif not isinstance(date_time, dt.date):
-        raise ValueError('Expecting date or datetime. Found {} of type {}'
-                         .format(date_time, type(date_time)))
-    return date_time
-
-
-def to_datetime(date):
-    if isinstance(date, dt.date):
-        return dt.datetime(date.year, date.month, date.day)
-    elif not isinstance(date, dt.datetime):
-        raise ValueError('Expecting date or datetime. Found {} of type {}'
-                         .format(date, type(date)))
+def act365_fixed(start, end):
+    """Compute accrual fraction using convention: Actual/365 Fixed"""
+    if isinstance(start, pd.DatetimeIndex):
+        start = Series(start)
+    if isinstance(end, pd.DatetimeIndex):
+        end = Series(end)
+    if isinstance(start, Series) or isinstance(end, Series):
+        return (end - start) / np.timedelta64(365, 'D')
     else:
-        return date
+        return (end - start).days / 365.0
 
 
-def act365_fixed(dt_start, dt_end):
-    return (calendar_date(dt_end) - calendar_date(dt_start)).days / 365.0
-
-_map_daycounts = {'Act/365 Fixed': act365_fixed}
-"""Standard day count conventions for computing year fractions."""
-# TODO - Is this to remain? should it be a dictionary to functions?
+def year_30360(dt):
+    """Helper function for thirty360"""
+    return dt.year + dt.month / 12 + dt.day / 360
 
 
-def daycount(name):  # TODO This is horrible. Change after daycounts added
-    return _map_daycounts.get(name, act365_fixed)
+def thirty360(start, end):
+    """Compute accrual fraction using convention: 30/360 Unadjusted
+
+    This version does not apply any End-Of-Month (EOM) rules.
+    ==> It is rarely used in practice!
+
+    It is fast and simple, so valuable for development and testing.
+    """
+    if isinstance(start, date):
+        start = year_30360(start)
+    else:
+        start = Series(start).map(year_30360)
+    if isinstance(end, date):
+        end = year_30360(end)
+    else:
+        end = Series(end).map(year_30360)
+    return end - start
+
+daycount_conventions = {
+    'ACT365FIXED': act365_fixed,
+    '30360': thirty360,
+}
 
 
+def daycounter(name=None):
+    """Function to compute accrual, given name from daycount_conventions"""
+    return daycount_conventions.get(name, thirty360)
+
+# TODO - What is the following used for?
 FREQ_TO_YEAR_FRAC = {
     'D': 1/365,
     'W': 1/52,
@@ -46,6 +69,7 @@ FREQ_TO_YEAR_FRAC = {
     'A': 1,
     'AS': 1
 }
+
 
 def freq_to_frac(freq):
     return FREQ_TO_YEAR_FRAC[freq]
@@ -95,5 +119,20 @@ def to_offset(s):
     return pd.tseries.offsets.DateOffset(**kwargs)
 
 
-def years_difference(start, end):
-    return (end - start).total_seconds() / 31536000
+if __name__ == '__main__':
+    # TODO Move this into tests
+    today = pd.to_datetime('today')
+    years_later = today + pd.DateOffset(years=4)
+    print('scalar - act365: {}'.format(act365_fixed(today, years_later)))
+    print('scalar - thirty360: {}'.format(thirty360(today, years_later)))
+
+    dt_settlement = today
+    frequency, tenor = 2, 6
+    dt_maturity = dt_settlement + pd.DateOffset(months=tenor)
+    period = pd.DateOffset(months=frequency)
+    sched_end = pd.date_range(dt_settlement, dt_maturity,
+                              freq=period, closed='right')
+
+    print('Series - act365: {}'.format(act365_fixed(today, sched_end)))
+    print('Series - thirty360: {}'.format(thirty360(today, sched_end)))
+
