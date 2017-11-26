@@ -95,7 +95,7 @@ class RatesTermStructure(Market):
                                  "contains more than one of them.")
         return self.map_discount_curves[currency].discount_factor(date)
 
-    def curve(self, currency, key) -> Curve:
+    def curve(self, currency, key):
         """ Provides curve and its market key that provide rates for input
 
         Parameters
