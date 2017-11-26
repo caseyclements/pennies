@@ -1,5 +1,4 @@
 language: python
-sudo: false
 
 env:
   matrix:
@@ -11,7 +10,8 @@ env:
 
 install:
   # Install conda
-  - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+  - sudo apt-get update
+  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
   - conda config --set always_yes yes --set changeps1 no
@@ -28,10 +28,16 @@ install:
   #- pip install --no-deps -e .
 
 script:
-  - if [[ $COVERAGE == 'true' ]]; then py.test --cov --cov-report=html -vv -s --pyarg tests; fi
+  - if [[ $COVERAGE == 'true' ]]; then 
+        py.test --cov --cov-report=html -vv -s tests; 
+    else
+        py.test -vv -s tests; 
+    fi
 
 after_success:
-  - if [[ COVERAGE == 'true' ]]; then coverage report --show-missing; pip install coveralls ; coveralls ; fi
+  - coverage report --show-missing
+  - pip install coveralls
+  - coveralls
 
 #notifications:
 #  email: false

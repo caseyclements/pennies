@@ -150,3 +150,4 @@ def default_calculators():
         str(assets.StirFuture): None,
         str(assets.FRA): None,
         str(assets.IborFixing): None}
+

@@ -1,6 +1,5 @@
 from __future__ import absolute_import, division, print_function
 
-
 from pennies.trading.trades import Trade, Portfolio
 from pennies.market.market import RatesTermStructure
 from pennies import dispatch
@@ -50,3 +49,4 @@ class TradeCalculator(object):
         if self.settlement_ccr is not None:
             pv += self.settlement_ccr.present_value()
         return pv
+
