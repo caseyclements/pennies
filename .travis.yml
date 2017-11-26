@@ -21,7 +21,7 @@ install:
   # Install dependencies
   - conda create -n test-environment python=$PYTHON
   - source activate test-environment
-  - conda install numpy=$NUMPY pandas scipy multipledispatch matplotlib pytest pytest-cov 
+  - conda install numpy=$NUMPY pandas scipy multipledispatch matplotlib pytest pytest-cov enum34
 
   # Install package in develop mode
   - python setup.py develop
