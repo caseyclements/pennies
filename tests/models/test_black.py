@@ -1,7 +1,7 @@
 from __future__ import division, print_function
 
-from ..black import price, delta, vega, theta_forward, theta_spot
-from ..black import strike_from_delta, implied_vol, _d1, _d1_using_mask
+from pennies.models.black import price, delta, vega, theta_forward, theta_spot
+from pennies.models.black import strike_from_delta, implied_vol, _d1, _d1_using_mask
 import numpy as np
 import pytest
 
