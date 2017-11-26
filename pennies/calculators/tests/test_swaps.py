@@ -1,6 +1,5 @@
 from __future__ import division, print_function
 
-import datetime as dt
 import numpy as np
 import pandas as pd
 from pandas.tseries.offsets import DateOffset
@@ -12,8 +11,9 @@ from pennies.market.interpolate import PiecewiseLinear
 from pennies.market.market import Market, RatesTermStructure
 from pennies.calculators.swaps import present_value, ibor_rate, par_rate
 
-dt_val = dt.date.today()  # note: date
-dt_settle = dt_val - dt.timedelta(days=200)
+dt_val = pd.to_datetime('today')
+dt_settle = dt_val - pd.Timedelta(days=200)
+
 length = 24  # months
 frqncy = 6  # months
 fixed_rate = 0.03
@@ -132,8 +132,9 @@ def test_present_value_vanilla_ibor_leg_at_fixing_date_equals_notional():
     assert np.isclose(present_value(spot_starting,nodal_rates_market, curr),
                       -notional)
 
+
 def test_present_value_of_swap_after_expiry():
-    dt_settle = dt_val - dt.timedelta(days=1000)
+    dt_settle = dt_val - pd.Timedelta(days=1000)
     fixed_leg = FixedLeg.from_tenor(dt_settlement=dt_settle, tenor=length,
                                     frequency=frqncy, rate=fixed_rate,
                                     notional=notional)
@@ -171,10 +172,3 @@ def test_basisswap_pv_zero_if_onecurve_termstructure():
                                                   6: crv_6m}})
     pv_2crv = present_value(basis_swap, mkt_2crv, curr)
     assert not np.isclose(pv_2crv, 0.0)
-
-
-if __name__ == '__main__':
-    #test_present_value_swap_equals_sum_of_legs()
-    #test_present_value_of_swap_after_expiry()
-    #test_present_value_vanilla_ibor_leg_at_fixing_date_equals_notional()
-    test_basisswap_pv_zero_if_onecurve_termstructure()

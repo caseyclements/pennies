@@ -1,7 +1,7 @@
 """Tests calibration for single and multi curve setups.
 Tests implicitly the price jacobian for Cubic Spline Interpolation."""
 
-from pennies.time import normalize_date, daycounter
+from pennies.time import daycounter
 from pennies.market.curves import DiscountCurveWithNodes
 from pennies.market.market import RatesTermStructure
 from pennies.market.interpolate import PiecewiseLinear, CubicSplineWithNodeSens
@@ -12,7 +12,6 @@ from pennies.market.curve_calibration import calibrate_rates, strip_of_swaps
 import numpy as np
 import pandas as pd
 import pytest
-from datetime import datetime
 from pandas.tseries.offsets import DateOffset
 
 
@@ -20,7 +19,7 @@ from pandas.tseries.offsets import DateOffset
 # TODO Expand coverage by turning these into fixtures
 # 1. Define the Market Prices to Calibrate to.
 # In our example, we create n Swaps, (or 2n) with upward sloping yield
-dt_val = normalize_date(datetime.now())  # Valuation Date
+dt_val = pd.to_datetime(np.datetime64('today'))  # Valuation Date
 dt_settle = dt_val  # Spot starting without typical spot starting lag
 ccy = "USD"
 n_nodes = 10    

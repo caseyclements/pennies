@@ -65,7 +65,7 @@ class ConstantDiscountRateCurve(DiscountCurve):
 
     Attributes
     ----------
-    dt_valuation: datetime.date
+    dt_valuation: date or datetime, preferably datetime64
         Date on which the curve is valid, and reference date for x-values
     zero_rate: float
         Continuously-compounded zero (discount) interest rate
@@ -87,7 +87,7 @@ class ConstantDiscountRateCurve(DiscountCurve):
         """
         Parameters
         ----------
-        dt_valuation: datetime.date
+        dt_valuation: date or datetime, preferably datetime64
             Date on which the curve is valid, and reference date for x-values
         zero_rate: float
             Continuously-compounded zero (discount) interest rate
@@ -133,7 +133,7 @@ class DiscountCurveWithNodes(DiscountCurve):
 
     Attributes
     ----------
-    dt_valuation: datetime or date
+    dt_valuation: date or datetime, preferably datetime64
         Date on which the curve is valid, and reference date for x-values
     node_dates: Series of date or datetime
         Dates on which rates are applicable.
@@ -152,7 +152,7 @@ class DiscountCurveWithNodes(DiscountCurve):
         """
         Parameters
         ----------
-        dt_valuation: datetime
+        dt_valuation: date or datetime, preferably datetime64
             Date on which curve is valid
         node_dates: Series or DateTimeIndex
             Maturity dates of the discount bonds implied by the curve

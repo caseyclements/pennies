@@ -1,21 +1,13 @@
-from pennies.market import market
-from pennies.market import curves
-
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d, CubicSpline
-import datetime as dt
 from pandas.tseries.offsets import DateOffset
 
 from pennies.market.curves import DiscountCurveWithNodes
 from pennies.market.market import RatesTermStructure
-from pennies.calculators.trades import present_value
-from pennies.trading.assets import VanillaSwap, FixedLeg, IborLeg
-from pennies.trading.trades import Portfolio
-
 
 # 1. Define Valuation Date
-dt_val = dt.datetime.now()
+dt_val = pd.to_datetime('today')
 
 # 2. Define the Market Prices to Calibrate to.
 # In our example, we create 3 Swaps, with an upward sloping yield

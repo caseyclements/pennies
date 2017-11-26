@@ -1,8 +1,6 @@
 from __future__ import division, print_function
-
-import datetime as dt
 import numpy as np
-
+import pandas as pd
 from pennies.trading import assets
 from pennies.trading import trades
 from pennies.market.curves import ConstantDiscountRateCurve
@@ -11,10 +9,9 @@ from pennies.calculators.payments import BulletPaymentCalculator
 from pennies.calculators.trades import TradeCalculator, present_value
 from pennies.core import CurrencyAmount
 
-# TODO - Should this be a class of, or a number of individual, tests?
 
-dt_val = dt.datetime.now()  # note: both date and time
-dt_pay = dt_val + dt.timedelta(days=730)
+dt_val = pd.to_datetime('today')
+dt_pay = dt_val + pd.Timedelta(days=730)
 notional = 5.5e6
 ccy = "USD"
 bullet = assets.BulletPayment(dt_payment=dt_pay, currency=ccy, notional=notional)
@@ -83,7 +80,3 @@ def test_trade_present_value_with_settlement_on_valuationdate():
 
     pv_dispatch = present_value(trade_w_settlement, market, ccy)
     assert np.isclose(pv_dispatch, pv_calc.amount)
-
-if __name__ == '__main__':
-    #test_contract_present_value_with_rates_zero()
-    test_trade_present_value_with_settlement_on_valuationdate()

@@ -11,14 +11,14 @@ class Market(object):
 
     Attributes
     ----------
-    dt_valuation: datetime
+    dt_valuation: date or datetime, preferably datetime64
         Time at which market is valid
     """
     def __init__(self, dt_valuation):
         """
         Parameters
         ----------
-        dt_valuation: datetime
+        dt_valuation: date or datetime, preferably datetime64
             Time at which market is valid
         """
         self.dt_valuation = dt_valuation
@@ -74,7 +74,7 @@ class RatesTermStructure(Market):
         map_curves = {}
         for ccy in np.unique(frame.ccy):
             mp_ccy = {}
-            df_ccy = frame[frame.ccy == ccy]
+            df_ccy = frame.loc[frame.ccy == ccy]
             for key in np.unique(df_ccy.curve):
                 mp_ccy[key] = DiscountCurveWithNodes.from_frame(
                     df_ccy[df_ccy.curve == key]['dates', 'rates'],

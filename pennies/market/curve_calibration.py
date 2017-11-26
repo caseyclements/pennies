@@ -159,9 +159,8 @@ if __name__ == '__main__':
     '''
 
     # 1. Define Valuation Date
-    from datetime import datetime
-    from pennies.time import normalize_date, daycounter
-    dt_val = normalize_date(datetime.now())
+    from pennies.time import daycounter
+    dt_val = pd.to_datetime('today')
 
     # 2. Define the Market Prices to Calibrate to.
     # In our example, we create n_contracts Swaps, with an upward sloping yield

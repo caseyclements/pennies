@@ -1,11 +1,11 @@
 """For now, playground while developing assets"""
 
-import datetime as dt
 import numpy as np
-from pandas import DataFrame, Timedelta
-from pennies.trading.assets import Annuity, FixedLeg, IborLeg, Swap, VanillaSwap
+import pandas as pd
+from pennies.trading.assets import Annuity, FixedLeg, \
+    IborLeg, Swap, VanillaSwap
 
-dt_settle = dt.date.today()
+dt_settle = pd.to_datetime('today')
 length = 24  # months
 frqncy = 6  # months
 fixed_rate = 0.03
@@ -17,9 +17,9 @@ def test_annuity_from_tenor():
     fixed = Annuity.from_tenor(dt_settle, tenor=length,
                                frequency=frqncy, rate=fixed_rate,
                                notional=notional, payment_lag=payment_lag)
-    assert type(fixed) == Annuity
+    assert isinstance(fixed, Annuity)
     df = fixed.frame
-    assert type(df) == DataFrame
+    assert isinstance(df, pd.DataFrame)
     cols = df.columns
     assert len(cols) == 13
     assert len(df) == 4
@@ -101,7 +101,7 @@ def test_fixing_lag():
                                  notional=-1 * notional, fixing_lag=2)
 
     assert np.all(leg_lag.frame['fixing'] >
-                  leg_no_lag.frame['fixing'] + Timedelta(days=1))
+                  leg_no_lag.frame['fixing'] + pd.Timedelta(days=1))
 
 
 def test_vanilla_swap():
@@ -118,22 +118,14 @@ def test_vanilla_swap():
 
 
 def test_using_from_tenor_with_datetime():
-    now = dt.datetime.now()
+    from datetime import datetime
+    now = datetime.now()
     fixed = Annuity.from_tenor(now, tenor=length,
                                frequency=frqncy, rate=fixed_rate,
                                notional=notional, payment_lag=payment_lag)
-    assert type(fixed) == Annuity
+    assert isinstance(fixed, Annuity)
     df = fixed.frame
-    assert type(df) == DataFrame
+    assert isinstance(df, pd.DataFrame)
     cols = df.columns
     assert len(cols) == 13
     assert len(df) == 4
-
-if __name__ == '__main__':
-    #test_annuity_from_tenor()
-    #test_fixedleg()
-    #test_iborleg()
-    #test_swap()
-    #test_fixing_lag()
-    #test_vanilla_swap()
-    test_using_from_tenor_with_datetime()

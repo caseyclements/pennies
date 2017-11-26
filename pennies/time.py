@@ -6,8 +6,6 @@ import pandas as pd
 from pandas import Series
 from datetime import date
 
-from pandas.tseries.tools import normalize_date, to_datetime
-
 
 def act365_fixed(start, end):
     """Compute accrual fraction using convention: Actual/365 Fixed"""
@@ -55,21 +53,23 @@ def daycounter(name=None):
     return daycount_conventions.get(name, thirty360)
 
 if __name__ == '__main__':
-    from datetime import datetime
-    from pandas.tseries.offsets import DateOffset
+    # TODO Move this into tests
+    today = pd.to_datetime('today')
+    years_later = today + pd.DateOffset(years=4)
+    print('scalar - act365: {}'.format(act365_fixed(today, years_later)))
+    print('scalar - thirty360: {}'.format(thirty360(today, years_later)))
 
-    s = datetime.now()
-    e = datetime(2020, 1, 1)
-    print('scalar - act365: {}'.format(act365_fixed(s,e)))
-    print('scalar - thirty360: {}'.format(thirty360(s, e)))
-
-    dt_settlement = datetime.now()
+    dt_settlement = today
     frequency, tenor = 2, 6
-    dt_maturity = dt_settlement + DateOffset(months=tenor)
-    period = DateOffset(months=frequency)
+    dt_maturity = dt_settlement + pd.DateOffset(months=tenor)
+    period = pd.DateOffset(months=frequency)
     sched_end = pd.date_range(dt_settlement, dt_maturity,
                               freq=period, closed='right')
 
-    print('Series - act365: {}'.format(act365_fixed(s, sched_end)))
-    print('Series - thirty360: {}'.format(thirty360(s, sched_end)))
+    print('Series - act365: {}'.format(act365_fixed(today, sched_end)))
+    print('Series - thirty360: {}'.format(thirty360(today, sched_end)))
+
+
+
+
 
