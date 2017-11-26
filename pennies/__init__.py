@@ -1,4 +1,5 @@
-from . import models
+from multipledispatch import dispatch
+from functools import partial
 
-__version__ = '0.1.0'
-
+NAMESPACE = dict()
+dispatch = partial(dispatch, namespace=NAMESPACE)  # TODO Why is namespace here?
