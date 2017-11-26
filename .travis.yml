@@ -3,10 +3,11 @@ sudo: false
 
 env:
   matrix:
-    - PYTHON=2.7 NUMPY=1.10.4 COVERAGE='false'
-    - PYTHON=2.7 NUMPY=1.11.0 COVERAGE='false'
-    - PYTHON=3.4 NUMPY=1.10.4 COVERAGE='false'
-    - PYTHON=3.5 NUMPY=1.11.0 COVERAGE='true'
+    - PYTHON=2.7 NUMPY=1.10 COVERAGE='false'
+    - PYTHON=2.7 NUMPY=1.11 COVERAGE='false'
+    - PYTHON=3.4 NUMPY=1.10 COVERAGE='false'
+    - PYTHON=3.5 NUMPY=1.11 COVERAGE='false'
+    - PYTHON=3.6 NUMPY=1.13 COVERAGE='true'
 
 install:
   # Install conda
@@ -22,13 +23,9 @@ install:
   - source activate test-environment
   - conda install numpy=$NUMPY pandas scipy multipledispatch matplotlib pytest pytest-cov 
 
-  # Install package
-  # from dask
-  - pip install --no-deps -e .
-  # taken from danielfrg/word2vec
-  ##- python setup.py bdist_wheel
-  ##- ls dist
-  ##- pip install --pre --no-index --find-links dist/ pennies
+  # Install package in develop mode
+  - python setup.py develop
+  #- pip install --no-deps -e .
 
 script:
   - if [[ $COVERAGE == 'true' ]]; then py.test --cov --cov-report=html -vv -s --pyarg --doctest-modules pennies; fi
