@@ -9,7 +9,8 @@ from pennies.trading.assets import Asset, FixedLeg, IborLeg, Swap, VanillaSwap
 from pennies.market.curves import ConstantDiscountRateCurve, DiscountCurveWithNodes
 from pennies.market.interpolate import PiecewiseLinear
 from pennies.market.market import Market, RatesTermStructure
-from pennies.calculators.swaps import present_value, ibor_rate, par_rate
+from pennies.calculators import present_value
+from pennies.calculators.swaps import ibor_rate, par_rate
 
 dt_val = pd.to_datetime('today')
 dt_settle = dt_val - pd.Timedelta(days=200)
