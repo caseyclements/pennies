@@ -2,5 +2,4 @@ pandas
 multipledispatch
 scipy
 matplotlib
-enum34
 

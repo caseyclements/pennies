@@ -7,17 +7,13 @@ from __future__ import absolute_import, division, print_function
 
 import pandas as pd
 from pandas import DataFrame
-from enum import Enum
 from numbers import Number
 
 from pandas.tseries.offsets import DateOffset, CustomBusinessDay
 from pennies.time import daycounter
 
 
-class RateType(Enum):
-    """Enum describing swap rate types"""
-    FIXED = 1
-    IBOR = 2
+RATETYPES = ['FIXED', 'IBOR']
 
 
 class Asset(object):
@@ -129,9 +125,9 @@ class Annuity(Asset):
 
     # TODO This will remain incomplete, in the sense that it only captures
     # TODO the Vanilla case. For example, it does not handle stubs.
-    #      Short | Long + Front | Back
+    # TODO Short and Long,  Front and Back
     # TODO Need to define set of conventions for daycount calculations
-    # TODO Need to define set of conventions business day adjustments
+    # TODO Need to define set of conventions for business day adjustments
     # TODO Need to add holiday calendars
 
     def __init__(self, df, notl_exchange=True):
@@ -154,24 +150,37 @@ class Annuity(Asset):
         # Primary representation
         self.frame = df
         # Scalar Metadata
-        self.type = df.get('type')
         self.notl_exchange = notl_exchange
         try:
-            self.currency = df['currency'].iloc[0]
+            vals = set(df.currency)
+            assert len(vals) == 1, ('currency column should have just one '
+                                    'value: Found {}'.format(vals))
+            self.currency = vals.pop()
         except KeyError:
             print('Required key, currency, not contained in frame')
             raise
         try:
-            self.frequency = df['frequency'].iloc[0]
+            vals = set(df.frequency)
+            assert len(vals) == 1, ('frequency column should have just one '
+                                    'value: Found {}'.format(vals))
+            self.frequency = vals.pop()
         except KeyError:
             print('Required key, frequency, not contained in frame')
             raise
+        try:
+            vals = set(df.type)
+            assert len(vals) == 1, ('type column should have just one '
+                                    'value: Found {}'.format(vals))
+            self.type = vals.pop()
+        except KeyError:
+            print('Optional key, type, not contained in frame. Set to None')
+            self.type = None
 
     @classmethod
     def from_tenor(cls, dt_settlement, tenor, frequency, rate=1.0, dcc=None,
                    notional=1.0, currency='USD', receive=True, payment_lag=0,
                    bday=None, stub='front', notl_exchange=True,
-                   rate_type=RateType.FIXED):
+                   rate_type='FIXED'):
         """Construct a fixed rate Annuity from start date, length and frequency.
 
         Parameters
@@ -218,6 +227,7 @@ class Annuity(Asset):
             sched_pay = sched_end
 
         # Primary representation of leg as Pandas DataFrame
+        assert rate_type in RATETYPES
         frame = pd.DataFrame({
             'start': sched_start,
             'end': sched_end,
@@ -252,7 +262,7 @@ class FixedLeg(Annuity):
 
     def __init__(self, df, fixed_rate=None, notl_exchange=True):
         super(FixedLeg, self).__init__(df, notl_exchange=notl_exchange)
-        self.type = RateType.FIXED
+        self.type = 'FIXED'
         self.frame['type'] = self.type
         if fixed_rate:
             self.frame['rate'] = fixed_rate
@@ -268,7 +278,7 @@ class FixedLeg(Annuity):
         annuity = Annuity.from_tenor(dt_settlement, tenor, frequency, rate,
                                      dcc, notional, currency, receive,
                                      payment_lag, bday, stub, notl_exchange,
-                                     rate_type=RateType.FIXED)
+                                     rate_type='FIXED')
         if isinstance(rate, Number):
             return FixedLeg(annuity.frame, fixed_rate=rate)
         else:
@@ -299,7 +309,7 @@ class IborLeg(Annuity):
         """
         # Primary representation
         super(IborLeg, self).__init__(df, notl_exchange=notl_exchange)
-        self.type = RateType.IBOR
+        self.type = 'IBOR'
         self.frame['rate_type'] = self.type
 
     @classmethod
@@ -310,7 +320,7 @@ class IborLeg(Annuity):
         annuity = Annuity.from_tenor(dt_settlement, tenor, frequency, rate,
                                      dcc, notional, currency, receive,
                                      payment_lag, bday, stub, notl_exchange,
-                                     rate_type=RateType.IBOR)
+                                     rate_type='IBOR')
 
         df = annuity.frame
         if bday or fixing_lag:
@@ -352,9 +362,9 @@ class VanillaSwap(Swap):
         assert isinstance(floating_leg, IborLeg)
         assert fixed_leg.currency == floating_leg.currency, \
             'Currencies differ in legs of VanillaSwap'
-        assert fixed_leg.type == RateType.FIXED
+        assert fixed_leg.type == 'FIXED'
         self.leg_fixed = fixed_leg
-        assert floating_leg.type == RateType.IBOR
+        assert floating_leg.type == 'IBOR'
         self.leg_float = floating_leg
         initial_notl_fixed = fixed_leg.frame.notional.iloc[0]
         initial_notl_float = floating_leg.frame.notional.iloc[0]

@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 from pandas import DataFrame, Series
 from numpy import zeros
 
-from pennies.trading.assets import Swap, Annuity, IborLeg, FixedLeg, VanillaSwap, RateType
+from pennies.trading.assets import Swap, Annuity, IborLeg, FixedLeg, VanillaSwap
 from pennies.market.market import RatesTermStructure
 from pennies.market.curves import ConstantDiscountRateCurve
 from pennies import dispatch
@@ -337,7 +337,7 @@ if __name__ == '__main__':
     # Hack up what the frame might look like
     df_fixed = fixed_leg.frame
     df_float = df_fixed.copy()
-    df_float.type = RateType.IBOR
+    df_float.type = 'IBOR'
     df_float['fixing'] = df_fixed.start
     df_float['frequency'] = frqncy
     df_float.notional *= -1
