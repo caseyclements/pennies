@@ -7,7 +7,7 @@ from pennies.market.curves import ConstantDiscountRateCurve
 from pennies.market.market import RatesTermStructure
 from pennies.calculators.payments import BulletPaymentCalculator
 from pennies.calculators.trades import TradeCalculator, present_value
-from pennies.core import CurrencyAmount
+from pennies import CurrencyAmount
 
 
 dt_val = pd.to_datetime('today')

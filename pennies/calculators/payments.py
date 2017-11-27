@@ -4,7 +4,7 @@ from pennies import dispatch
 
 from pennies.trading.assets import BulletPayment
 from pennies.calculators.assets import AssetCalculator
-from pennies.core import CurrencyAmount
+from pennies import CurrencyAmount
 from pennies.market.market import Market, RatesTermStructure
 
 
@@ -25,7 +25,7 @@ def present_value(contract, market, reporting_ccy):
 
 
 class BulletPaymentCalculator(AssetCalculator):
-    """Calculator for BulletPayments and its aliases."""
+    """(Deprecated) Calculator for BulletPayments and its aliases."""
 
     measures = {  # TODO Complete this. Consider visitor pattern for ccrs
         "present_value",
