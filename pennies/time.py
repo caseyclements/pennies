@@ -99,7 +99,7 @@ def date_range(start, end, freq):
         return pd.DatetimeIndex([end])
 
     if isinstance(end, str):
-        end = dt.datetime.strptime(end, '%Y-%m-%d')
+        end = pd.to_datetime(end)
 
     return pd.date_range(start, end, freq=freq)
 

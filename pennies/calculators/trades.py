@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 from pennies.trading.trades import Trade, Portfolio
 from pennies.market.market import RatesTermStructure
-from pennies import dispatch
+from multipledispatch import dispatch
 # TODO Refactor to remove the Calculator
 from pennies.calculators.payments import BulletPaymentCalculator
 from pennies.calculators.assets import default_calculators

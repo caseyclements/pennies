@@ -1,6 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
-from pennies import dispatch
+from multipledispatch import dispatch
 from six import string_types
 
 from pennies.trading.assets import Asset

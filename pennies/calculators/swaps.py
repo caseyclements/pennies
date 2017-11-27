@@ -6,7 +6,7 @@ from numpy import zeros
 from pennies.trading.assets import Swap, Annuity, IborLeg, FixedLeg, VanillaSwap
 from pennies.market.market import RatesTermStructure
 from pennies.market.curves import ConstantDiscountRateCurve
-from pennies import dispatch
+from multipledispatch import dispatch
 
 
 @dispatch(Annuity, RatesTermStructure, str)
@@ -80,7 +80,7 @@ def par_rate(contract, market):
     return pv_flt / pv_fix
 
 
-def ibor_rate(contract: IborLeg, market: RatesTermStructure):
+def ibor_rate(contract, market):
     """ALL the natural (L)IBOR rates implied by the start and end schedules.
 
     Returns
@@ -91,7 +91,8 @@ def ibor_rate(contract: IborLeg, market: RatesTermStructure):
     This assumes that there is no convexity caused by lags between accrual dates
     and fixing and payment dates.
     """
-
+    assert isinstance(contract, IborLeg)
+    assert isinstance(market, RatesTermStructure)
     crv_fwd, key = market.curve(contract.currency, contract.frequency)
     zcb_pay = crv_fwd.discount_factor(contract.frame.pay)
     zcb_fix = crv_fwd.discount_factor(contract.frame.fixing)

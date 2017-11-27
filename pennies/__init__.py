@@ -1,10 +1,4 @@
 from __future__ import absolute_import, division, print_function
-from multipledispatch import dispatch
-from functools import partial
-
-NAMESPACE = dict()
-dispatch = partial(dispatch, namespace=NAMESPACE)  # TODO Why is namespace here?
-
 
 class CurrencyAmount(object):
     """ Amount of some given currency.
@@ -88,7 +82,7 @@ class CurrencyWallet(object):
     currencies without immediately converting them to a single currency given
     a foreign exchange rate, or raise an exception.
     """
-    def __init__(self, ccy_amt: CurrencyAmount=None):
+    def __init__(self, ccy_amt=None):
         self._wallet = {}
         if ccy_amt is None:
             return
