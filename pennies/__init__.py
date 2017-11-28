@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+
 class CurrencyAmount(object):
     """ Amount of some given currency.
 
@@ -74,7 +75,6 @@ class CurrencyAmount(object):
         return self
 
 
-# TODO - Add tests of CurrencyWallet. Extend overrides.
 class CurrencyWallet(object):
     """Dictionary of Currency (str) to CurrencyAmount
 

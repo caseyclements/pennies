@@ -22,9 +22,12 @@ class Asset(object):
     def __init__(self):
         self.frame = pd.DataFrame()
 
-    # TODO - Ask whether the Visitor Pattern is a good idea in Python
     def accept(self, visitor, *args, **kwargs):
-        """Accepts visitors that calculate various measures on the Asset"""
+        """Accepts visitors that calculate various measures on the Asset.
+
+        Stub if we wish to use visitor pattern.
+        Currently using multipledispatch
+        """
         return visitor.visit(Asset, *args, **kwargs)
 
     def __eq__(self, other):
@@ -78,40 +81,6 @@ class ZeroCouponBond(Asset):
             'currency': currency},
             index=[0])
 
-# TODO: Check whether this sort of aliasing is a good idea
-Zero = ZeroCouponBond
-"""Alias for a ZeroCouponBond"""
-ZCB = ZeroCouponBond
-"""Alias for a ZeroCouponBond"""
-DiscountBond = ZeroCouponBond
-"""Alias for a ZeroCouponBond"""
-BulletPayment = ZeroCouponBond
-"""Alias for a ZeroCouponBond"""
-SettlementPayment = ZeroCouponBond
-"""BulletPayment used to settle trades"""
-
-
-class CompoundAsset(Asset):
-    """This Asset is composed of a list of Assets.
-
-    This is a convenient way to structure a bespoke trade that contains
-    numerous parts, like embedded options, or different first coupons.
-
-    Attributes
-    ----------
-    underlying_contracts: list
-        List of instances of Assets
-    """
-
-    def __init__(self, underlying_contracts):
-        """
-        Parameters
-        ----------
-        underlying_contracts: list of Asset's
-        """
-        super(CompoundAsset, self).__init__()
-        self.underlying_contracts = underlying_contracts
-
 
 class Annuity(Asset):
     """Fixed Rate Annuity.
@@ -123,12 +92,11 @@ class Annuity(Asset):
     row is a single cashflow.
     """
 
-    # TODO This will remain incomplete, in the sense that it only captures
-    # TODO the Vanilla case. For example, it does not handle stubs.
-    # TODO Short and Long,  Front and Back
-    # TODO Need to define set of conventions for daycount calculations
-    # TODO Need to define set of conventions for business day adjustments
-    # TODO Need to add holiday calendars
+    # TODO Capture additional cases outlined below
+    # TODO Stubs: Short and Long,  Front and Back
+    # TODO Daycount conventions: add more
+    # TODO Business day adjustments conventions: add more
+    # TODO Holiday calendars: add
 
     def __init__(self, df, notl_exchange=True):
         """Create Annuity from DataFrame.
@@ -219,7 +187,7 @@ class Annuity(Asset):
         dt_maturity = dt_settlement + DateOffset(months=tenor)
         period = DateOffset(months=frequency)
         sched_end = pd.date_range(dt_settlement, dt_maturity,
-                                  freq=period, closed='right') # TODO should build start and end in one schedule, and then index to get starts and ends
+                                  freq=period, closed='right')
         sched_start = sched_end - period  # TODO Test stub cases. start[i] should be end[i-1]
         if bday or payment_lag:
             sched_pay = sched_end + CustomBusinessDay(payment_lag, holidays=None)
@@ -338,6 +306,28 @@ class IborLeg(Annuity):
                 super(IborLeg, self).__eq__(other))
 
 
+class CompoundAsset(Asset):
+    """This Asset is composed of a list of Assets.
+
+    This is a convenient way to structure a bespoke trade that contains
+    numerous parts, like embedded options, or different first coupons.
+
+    Attributes
+    ----------
+    underlying_contracts: list
+        List of instances of Assets
+    """
+
+    def __init__(self, underlying_contracts):
+        """
+        Parameters
+        ----------
+        underlying_contracts: list of Asset's
+        """
+        super(CompoundAsset, self).__init__()
+        self.underlying_contracts = underlying_contracts
+
+
 class Swap(CompoundAsset):
     def __init__(self, receive_leg, pay_leg):
         """ This takes two frames"""
@@ -353,7 +343,6 @@ class Swap(CompoundAsset):
     def __str__(self):
         return ('\nPay Leg:\n' + str(self.leg_pay) +
                 '\nReceive Leg:\n' + str(self.leg_receive))
-
 
 
 class VanillaSwap(Swap):
@@ -381,6 +370,7 @@ class VanillaSwap(Swap):
         return (isinstance(other, VanillaSwap) and
                 self.leg_fixed == other.leg_fixed and
                 self.leg_float == other.leg_float)
+
 
 class FRA(Asset):
     """Forward Rate Agreement"""
@@ -428,3 +418,15 @@ class CurrencySwap(Swap):
 
     def __init__(self):
         raise NotImplementedError
+
+# TODO: Check whether this sort of aliasing is a good idea
+Zero = ZeroCouponBond
+"""Alias for a ZeroCouponBond"""
+ZCB = ZeroCouponBond
+"""Alias for a ZeroCouponBond"""
+DiscountBond = ZeroCouponBond
+"""Alias for a ZeroCouponBond"""
+BulletPayment = ZeroCouponBond
+"""Alias for a ZeroCouponBond"""
+SettlementPayment = ZeroCouponBond
+"""BulletPayment used to settle trades"""
