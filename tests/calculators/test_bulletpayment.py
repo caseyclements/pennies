@@ -10,7 +10,7 @@ from pennies.calculators.trades import TradeCalculator, present_value
 from pennies import CurrencyAmount
 
 
-dt_val = pd.to_datetime('today')
+dt_val = pd.to_datetime('2017-01-01')
 dt_pay = dt_val + pd.Timedelta(days=730)
 notional = 5.5e6
 ccy = "USD"
