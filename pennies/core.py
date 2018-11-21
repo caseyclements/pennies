@@ -85,7 +85,7 @@ class CurrencyWallet(object):
     currencies without immediately converting them to a single currency given
     a foreign exchange rate, or raise an exception.
     """
-    def __init__(self, ccy_amt: CurrencyAmount=None):
+    def __init__(self, ccy_amt):
         self._wallet = {}
         if ccy_amt is None:
             return

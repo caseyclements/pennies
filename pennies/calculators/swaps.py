@@ -80,7 +80,7 @@ def par_rate(contract, market):
     return pv_flt / pv_fix
 
 
-def ibor_rate(contract: IborLeg, market: RatesTermStructure):
+def ibor_rate(contract, market):
     """ALL the natural (L)IBOR rates implied by the start and end schedules.
 
     Returns

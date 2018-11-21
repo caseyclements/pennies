@@ -35,8 +35,8 @@ def strip_of_swaps(dt_settlement, currency, tenor, maturities, rates):
     return swaps
 
 
-def calibrate_rates(rates_mkt: RatesTermStructure,
-                    target_portfolio: Portfolio,
+def calibrate_rates(rates_mkt,
+                    target_portfolio,
                     rates_guess=None,
                     **root_kwargs):
     """Calibrate a map of curves that models market to a target set of prices.
